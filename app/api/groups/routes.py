@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from app.api.groups import groups_bp
 from app.api.groups.services import (
     get_filtered_groups,
@@ -51,6 +51,17 @@ def search_groups():
     if not keywords:
         return jsonify({"error": "No keywords provided"}), 400
     
-    groups = search_telegram_groups(keywords, language)
+    # Log the request for debugging
+    current_app.logger.info(f"Searching for groups with keywords: {keywords}, language: {language}")
     
-    return jsonify(groups)
+    # Perform the search
+    try:
+        groups = search_telegram_groups(keywords, language)
+        
+        # Log the result count for monitoring
+        current_app.logger.info(f"Found {len(groups)} groups matching the criteria")
+        
+        return jsonify(groups)
+    except Exception as e:
+        current_app.logger.error(f"Error during group search: {str(e)}")
+        return jsonify({"error": "An error occurred during search"}), 500
