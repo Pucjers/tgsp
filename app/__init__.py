@@ -26,6 +26,7 @@ def create_app(config=None):
         DATA_DIR='data'
     )
     
+
     # Override with provided config if any
     if config:
         # Instead of app.config.update(config), let's extract config attributes
@@ -55,4 +56,9 @@ def create_app(config=None):
     from app.routes import main_bp
     app.register_blueprint(main_bp)
     
+
+    print("Registered routes:")
+    for rule in app.url_map.iter_rules():
+        print(f"{rule.endpoint}: {rule}")
+
     return app

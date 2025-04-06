@@ -1,4 +1,4 @@
-from flask import Blueprint, send_from_directory, render_template, current_app, redirect
+from flask import Blueprint, send_from_directory, render_template, current_app, redirect, abort
 import os
 
 main_bp = Blueprint('main', __name__)
@@ -21,9 +21,21 @@ def group_parser():
     """Serve the group parser page"""
     return send_from_directory(current_app.template_folder, 'group_parser.html')
 
+@main_bp.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    print(f"Upload route triggered for: {filename}")
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    print(f"Looking in folder: {upload_folder}")
+    print(f"File exists: {os.path.exists(os.path.join(upload_folder, filename))}")
+    
+    try:
+        return send_from_directory(upload_folder, filename)
+    except FileNotFoundError:
+        return f"File not found: {filename}", 404
 
 @main_bp.route('/<path:filename>')
 def static_files(filename):
+    print(f"Route triggered for filename: {filename}")
     if filename.startswith('uploads/'):
         # Strip 'uploads/' prefix and serve from UPLOAD_FOLDER
         file_path = filename[8:]  # Remove 'uploads/' 
