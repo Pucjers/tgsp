@@ -24,10 +24,16 @@ def group_parser():
 
 @main_bp.route('/<path:filename>')
 def static_files(filename):
-    """Serve static files"""
     if filename.startswith('uploads/'):
         # Strip 'uploads/' prefix and serve from UPLOAD_FOLDER
-        file_path = filename[8:]  # Remove 'uploads/'
-        return send_from_directory(current_app.config['UPLOAD_FOLDER'], file_path)
+        file_path = filename[8:]  # Remove 'uploads/' 
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        
+        try:
+            return send_from_directory(upload_folder, file_path)
+        except FileNotFoundError:
+            # Log the file not found for debugging
+            current_app.logger.error(f"Requested file not found: {file_path}")
+            abort(404)
     
     return send_from_directory(current_app.static_folder, filename)

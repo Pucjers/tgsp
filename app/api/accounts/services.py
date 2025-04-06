@@ -4,6 +4,7 @@ import datetime
 import tempfile
 import shutil
 from typing import List, Dict, Any, Optional, Union
+from urllib.parse import quote
 from flask import current_app
 from werkzeug.datastructures import FileStorage
 
@@ -168,13 +169,17 @@ def create_new_account(data: Dict[str, Any]) -> Dict[str, Any]:
         save_accounts(accounts)
         return {"account": existing_account, "updated": True}
     
+    avatar = data.get('avatar')
+    if not avatar:
+        # Generate UI avatar if no avatar provided
+        avatar = f'https://ui-avatars.com/api/?name={quote(data["name"])}&background=random'
     # Create new account object with list_ids array
     new_account = {
         "id": str(uuid.uuid4()),
         "phone": phone_str,
         "name": data['name'],
         "username": data.get('username', ''),
-        "avatar": data.get('avatar', f'https://ui-avatars.com/api/?name={data["name"]}&background=random'),
+        "avatar": avatar,
         "status": "Не проверен",
         "limits": data.get('limits', {}),
         "created_at": datetime.datetime.now().isoformat(),

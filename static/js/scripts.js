@@ -274,7 +274,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         elements.emptyState.style.display = 'none';
-        elements.accountsTableBody.innerHTML = accounts.map(account => `
+        elements.accountsTableBody.innerHTML = accounts.map(account => {
+            // Function to determine avatar display
+            const getAvatarDisplay = () => {
+                // Check if avatar exists and is a valid URL
+                if (account.avatar) {
+                    // Check for full URLs, upload paths, or base64 images
+                    const isValidAvatar = 
+                        account.avatar.startsWith('http') || 
+                        account.avatar.startsWith('/uploads') || 
+                        account.avatar.startsWith('data:image');
+                    
+                    if (isValidAvatar) {
+                        return `<img src="${account.avatar}" alt="${account.name}">`;
+                    }
+                }
+                
+                // Fallback to UI avatars if no valid avatar
+                return `<i class="fas fa-user"></i>`;
+            };
+
+            return `
             <tr data-id="${account.id}">
                 <td class="checkbox-col">
                     <input type="checkbox" class="account-checkbox" data-id="${account.id}">
@@ -282,10 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td>
                     <div class="account-info">
                         <div class="account-avatar">
-                            ${account.avatar && (account.avatar.startsWith('http') || account.avatar.startsWith('/uploads')) ? 
-                                `<img src="${account.avatar}" alt="${account.name}">` :
-                                `<i class="fas fa-user"></i>`
-                            }
+                            ${getAvatarDisplay()}
                         </div>
                         <div class="account-details">
                             <div class="account-name">${account.name}</div>
@@ -314,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
         
         // Attach event listeners
         attachAccountEventListeners();
@@ -838,15 +855,39 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target.files && e.target.files[0]) {
                 const file = e.target.files[0];
                 
-                // Upload the file
-                const result = await api.uploadAvatar(file);
+                console.log('File to upload:', {
+                    name: file.name,
+                    type: file.type,
+                    size: file.size
+                });
                 
-                if (result && result.url) {
-                    // Update preview
-                    preview.innerHTML = `<img src="${result.url}" alt="Avatar">`;
+                // Create FormData to upload
+                const formData = new FormData();
+                formData.append('avatar', file);
+                
+                try {
+                    const response = await fetch('/api/accounts/upload-avatar', {
+                        method: 'POST',
+                        body: formData
+                    });
                     
-                    // Store the URL
-                    avatarUrlInput.value = result.url;
+                    const result = await response.json();
+                    
+                    console.log('Upload response:', result);
+                    
+                    if (response.ok && result.url) {
+                        // Update preview
+                        preview.innerHTML = `<img src="${result.url}" alt="Avatar">`;
+                        
+                        // Store the URL
+                        avatarUrlInput.value = result.url;
+                    } else {
+                        console.error('Upload failed:', result);
+                        showToast(`Upload failed: ${result.error || 'Unknown error'}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showToast('Error uploading avatar', 'error');
                 }
             }
         });

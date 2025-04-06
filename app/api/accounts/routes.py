@@ -139,15 +139,13 @@ def check():
 
 @accounts_bp.route('/upload-avatar', methods=['POST'])
 def upload_avatar():
-    """Upload an avatar image for an account"""
     # Check if the post request has the file part
     if 'avatar' not in request.files:
         return jsonify({"error": "No file part"}), 400
     
     file = request.files['avatar']
     
-    # If user does not select file, browser also
-    # submit an empty part without filename
+    # If user does not select file, browser also submit an empty part without filename
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
     
@@ -156,11 +154,24 @@ def upload_avatar():
         # Add timestamp to filename to prevent caching issues
         timestamp = int(datetime.datetime.now().timestamp())
         filename = f"{timestamp}_{filename}"
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
         
-        # Return path to uploaded file
-        return jsonify({"url": f"/uploads/{filename}"})
+        # Ensure uploads directory exists
+        upload_folder = current_app.config['UPLOAD_FOLDER']
+        os.makedirs(upload_folder, exist_ok=True)
+        
+        file_path = os.path.join(upload_folder, filename)
+        
+        try:
+            file.save(file_path)
+            
+            # Log the full file path for debugging
+            current_app.logger.info(f"File saved to: {file_path}")
+            
+            # Return path to uploaded file
+            return jsonify({"url": f"/uploads/{filename}"})
+        except Exception as e:
+            current_app.logger.error(f"Error saving file: {str(e)}")
+            return jsonify({"error": f"Failed to save file: {str(e)}"}), 500
     
     return jsonify({"error": "File type not allowed"}), 400
 

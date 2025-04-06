@@ -307,12 +307,29 @@ ul {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    object-fit: cover;
     background-color: var(--light-bg);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-light);
+    flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.account-avatar img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.account-avatar i {
+    font-size: 16px;
+    z-index: 1;
 }
 
 .account-details {

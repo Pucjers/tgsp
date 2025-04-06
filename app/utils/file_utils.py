@@ -108,6 +108,4 @@ def save_accounts_meta(meta_data: Dict[str, Any]) -> bool:
 
 def allowed_file(filename: str) -> bool:
     """Check if a filename has an allowed extension"""
-    allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS', 
-                                             {'png', 'jpg', 'jpeg', 'gif'})
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
