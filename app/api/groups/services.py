@@ -1,24 +1,32 @@
 import os
 import json
 import uuid
+import logging
 from typing import List, Dict, Any, Optional, Union
 from flask import current_app
 
 from app.utils.file_utils import ensure_data_directory
 
-# Import the new Telegram group parser
+# Setup a basic logger for use outside application context
+logger = logging.getLogger(__name__)
+
+# Import the Telegram group parser
 # We wrap this in a try-except to handle the case where it's not yet available
 try:
-    from app.services.telegram_group_parser import search_telegram_groups, fallback_search_telegram_groups
+    from app.services.telegram_group_parser import search_telegram_groups
     TELEGRAM_PARSER_AVAILABLE = True
 except ImportError:
-    current_app.logger.warning("Telegram group parser not available, using mock data")
+    logger.warning("Telegram group parser not available")
     TELEGRAM_PARSER_AVAILABLE = False
 
 
 def get_groups_file() -> str:
     """Get the path to the groups data file"""
-    return os.path.join(current_app.config.get('DATA_DIR', 'data'), 'groups.json')
+    try:
+        return os.path.join(current_app.config.get('DATA_DIR', 'data'), 'groups.json')
+    except RuntimeError:
+        # Fallback when outside application context
+        return os.path.join('data', 'groups.json')
 
 
 def get_all_groups() -> List[Dict[str, Any]]:
@@ -40,7 +48,10 @@ def get_all_groups() -> List[Dict[str, Any]]:
         with open(groups_file, 'r') as f:
             return json.load(f)
     except Exception as e:
-        current_app.logger.error(f"Error loading groups: {e}")
+        try:
+            current_app.logger.error(f"Error loading groups: {e}")
+        except RuntimeError:
+            logger.error(f"Error loading groups: {e}")
         return []
 
 
@@ -62,7 +73,10 @@ def save_groups(groups: List[Dict[str, Any]]) -> bool:
             json.dump(groups, f, indent=2)
         return True
     except Exception as e:
-        current_app.logger.error(f"Error saving groups: {e}")
+        try:
+            current_app.logger.error(f"Error saving groups: {e}")
+        except RuntimeError:
+            logger.error(f"Error saving groups: {e}")
         return False
 
 
@@ -171,80 +185,20 @@ def search_telegram_groups(keywords: List[str], language: str = 'all') -> List[D
     if TELEGRAM_PARSER_AVAILABLE:
         try:
             # Try to use the real Telegram search
-            result = search_telegram_groups(keywords, language)
-            
-            # If we got results, return them
-            if result:
-                return result
-                
-            # If no results, try the fallback (only for development/testing)
-            if current_app.config.get('DEBUG', False):
-                current_app.logger.warning("No results from real search, using fallback mock data")
-                return fallback_search_telegram_groups(keywords, language)
-            
-            # In production, return empty list if real search returns nothing
-            return []
-            
+            from app.services.telegram_group_parser import search_telegram_groups as telegram_search
+            result = telegram_search(keywords, language)
+            return result
         except Exception as e:
-            current_app.logger.error(f"Error in search_telegram_groups: {e}")
-            
-            # In development mode, use fallback mock data
-            if current_app.config.get('DEBUG', False):
-                current_app.logger.warning("Error in real search, using fallback mock data")
-                return fallback_search_telegram_groups(keywords, language)
-            
-            # In production, return empty list
+            try:
+                current_app.logger.error(f"Error in search_telegram_groups: {e}")
+            except RuntimeError:
+                logger.error(f"Error in search_telegram_groups: {e}")
+            # Return empty list if search fails
             return []
     else:
-        # If the parser is not available, use the fallback mock implementation
-        return _mock_search_telegram_groups(keywords, language)
-
-
-def _mock_search_telegram_groups(keywords: List[str], language: str = 'all') -> List[Dict[str, Any]]:
-    """
-    Fallback mock implementation for searching Telegram groups
-    
-    Args:
-        keywords: List of keywords to search for
-        language: Language filter (ISO code or 'all')
-        
-    Returns:
-        List of mock group dictionaries
-    """
-    import random
-    
-    current_app.logger.warning("Using mock search implementation - actual Telegram parser not available")
-    
-    found_groups = []
-    languages = ['en', 'ru', 'es', 'fr', 'de'] if language == 'all' else [language]
-    
-    for keyword in keywords:
-        # Generate 1-5 groups per keyword
-        for _ in range(random.randint(1, 5)):
-            # Create random group data
-            prefixes = ['', 'The ', 'Official ', 'Best ', 'Top ', 'Ultimate ']
-            suffixes = ['Group', 'Community', 'Club', 'Network', 'Chat', 'Hub', 'Center', 'World']
-            
-            prefix = random.choice(prefixes)
-            suffix = random.choice(suffixes)
-            group_name = f"{prefix}{keyword.capitalize()} {suffix}"
-            
-            username = f"{keyword.lower()}_{random.randint(1000, 9999)}"
-            members = random.randint(100, 100000)
-            online = random.randint(5, min(members // 10, 2000))
-            group_language = random.choice(languages)
-            
-            group = {
-                "id": str(uuid.uuid4()),
-                "telegram_id": random.randint(1000000000, 9999999999),
-                "title": group_name,
-                "username": username,
-                "members": members,
-                "online": online,
-                "language": group_language,
-                "description": f"This is a group about {keyword}"
-            }
-            
-            found_groups.append(group)
-    
-    return found_groups
+        # If the parser is not available, return empty list
+        try:
+            current_app.logger.error("Telegram parser not available")
+        except RuntimeError:
+            logger.error("Telegram parser not available")
+        return []

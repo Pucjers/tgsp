@@ -2,6 +2,8 @@ import os
 import asyncio
 import json
 import uuid
+import time
+import logging
 from typing import List, Dict, Any, Optional
 from telethon.sync import TelegramClient
 from telethon.tl.functions.messages import SearchGlobalRequest
@@ -10,7 +12,17 @@ from telethon.tl.types import InputPeerEmpty, Channel, Chat, User, ChatEmpty
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.errors import FloodWaitError
-from flask import current_app
+
+# Setup a basic logger for use outside application context
+logger = logging.getLogger(__name__)
+
+# Import langdetect for better language detection
+try:
+    from langdetect import detect as langdetect_detect, LangDetectException
+    LANGDETECT_AVAILABLE = True
+except ImportError:
+    LANGDETECT_AVAILABLE = False
+    logger.warning("langdetect library not available, using basic language detection")
 
 
 # Use the session from the first available account
@@ -35,8 +47,8 @@ def load_api_credentials():
     config_path = os.path.join(os.getcwd(), "data", "telegram_api.ini")
     
     # Default values
-    api_id = current_app.config.get('TELEGRAM_API_ID', 149467)
-    api_hash = current_app.config.get('TELEGRAM_API_HASH', '65f1b75a0b1d5a6461c1fc67b5514c1b')
+    api_id = 149467
+    api_hash = "65f1b75a0b1d5a6461c1fc67b5514c1b"
     
     # Try to load from config file
     try:
@@ -47,9 +59,126 @@ def load_api_credentials():
             api_id = config.getint('Telegram', 'api_id')
             api_hash = config.get('Telegram', 'api_hash')
     except Exception as e:
-        current_app.logger.error(f"Error loading API credentials: {e}")
+        logger.error(f"Error loading API credentials: {e}")
     
     return api_id, api_hash
+
+
+def get_cached_search_results(keywords: List[str], language: str) -> Optional[List[Dict[str, Any]]]:
+    """
+    Get cached search results for the given keywords and language
+    
+    Args:
+        keywords: List of keywords used for the search
+        language: Language filter applied to the search
+        
+    Returns:
+        Cached search results or None if no valid cache exists
+    """
+    # Default data directory
+    data_dir = os.path.join(os.getcwd(), "data")
+    cache_file = os.path.join(data_dir, 'search_cache.json')
+    
+    # Try to get data directory from app config if in application context
+    try:
+        from flask import current_app
+        data_dir = current_app.config.get('DATA_DIR', data_dir)
+        cache_file = os.path.join(data_dir, 'search_cache.json')
+    except (ImportError, RuntimeError):
+        pass  # Use default if not in app context
+    
+    if not os.path.exists(cache_file):
+        return None
+        
+    try:
+        with open(cache_file, 'r') as f:
+            cache = json.load(f)
+            
+        # Create a cache key from keywords and language
+        # Sort keywords to ensure consistent keys regardless of order
+        cache_key = f"{','.join(sorted(keywords))}-{language}"
+        
+        # Check if we have cached results and they're not expired
+        if cache_key in cache:
+            entry = cache[cache_key]
+            timestamp = entry.get('timestamp', 0)
+            # Use a 24-hour cache expiration by default
+            cache_ttl = 86400  # 24 hours in seconds
+            
+            try:
+                from flask import current_app
+                cache_ttl = current_app.config.get('SEARCH_CACHE_TTL', cache_ttl)
+            except (ImportError, RuntimeError):
+                pass  # Use default if not in app context
+            
+            if time.time() - timestamp < cache_ttl:
+                logger.info(f"Using cached results for {cache_key} (age: {int((time.time() - timestamp) / 60)} minutes)")
+                return entry.get('results', [])
+            else:
+                logger.info(f"Cache expired for {cache_key}")
+                
+        return None
+    except Exception as e:
+        logger.error(f"Error reading search cache: {e}")
+        return None
+
+
+def save_search_results_to_cache(keywords: List[str], language: str, results: List[Dict[str, Any]]) -> bool:
+    """
+    Save search results to cache
+    
+    Args:
+        keywords: List of keywords used for the search
+        language: Language filter applied to the search
+        results: Search results to cache
+        
+    Returns:
+        True if saved successfully, False otherwise
+    """
+    # Default data directory
+    data_dir = os.path.join(os.getcwd(), "data")
+    cache_file = os.path.join(data_dir, 'search_cache.json')
+    
+    # Try to get data directory from app config if in application context
+    try:
+        from flask import current_app
+        data_dir = current_app.config.get('DATA_DIR', data_dir)
+        cache_file = os.path.join(data_dir, 'search_cache.json')
+    except (ImportError, RuntimeError):
+        pass  # Use default if not in app context
+    
+    try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+        
+        # Load existing cache
+        cache = {}
+        if os.path.exists(cache_file):
+            with open(cache_file, 'r') as f:
+                try:
+                    cache = json.load(f)
+                except json.JSONDecodeError:
+                    logger.warning(f"Invalid JSON in cache file, creating new cache")
+        
+        # Create a cache key from keywords and language
+        cache_key = f"{','.join(sorted(keywords))}-{language}"
+        
+        # Save results with timestamp
+        cache[cache_key] = {
+            'timestamp': time.time(),
+            'results': results
+        }
+        
+        # Save cache back to file
+        with open(cache_file, 'w') as f:
+            json.dump(cache, f, indent=2)
+        
+        logger.info(f"Saved {len(results)} results to cache for {cache_key}")
+        return True
+            
+    except Exception as e:
+        logger.error(f"Error saving search cache: {e}")
+        return False
 
 
 async def search_telegram_groups_async(keywords: List[str], language: str = 'all', max_results: int = 50) -> List[Dict[str, Any]]:
@@ -64,10 +193,15 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
     Returns:
         List of found group dictionaries
     """
+    # Check for cached results first
+    cached_results = get_cached_search_results(keywords, language)
+    if cached_results is not None:
+        return cached_results
+    
     # Get session and API credentials
     session_path = get_active_session()
     if not session_path:
-        current_app.logger.error("No active Telegram session found")
+        logger.error("No active Telegram session found")
         return []
     
     api_id, api_hash = load_api_credentials()
@@ -79,7 +213,7 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
         await client.connect()
         
         if not await client.is_user_authorized():
-            current_app.logger.error("Telegram client not authorized")
+            logger.error("Telegram client not authorized")
             await client.disconnect()
             return []
         
@@ -118,7 +252,7 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
                                     if group_info not in found_groups:
                                         found_groups.append(group_info)
                             except Exception as e:
-                                current_app.logger.warning(f"Error getting details for group {result.title}: {e}")
+                                logger.warning(f"Error getting details for group {result.title}: {e}")
                                 # Still add basic information
                                 group_info = {
                                     "id": str(uuid.uuid4()),
@@ -133,7 +267,7 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
                                 if group_info not in found_groups:
                                     found_groups.append(group_info)
                 except Exception as e:
-                    current_app.logger.warning(f"Error in global search for keyword '{keyword}': {e}")
+                    logger.warning(f"Error in global search for keyword '{keyword}': {e}")
                 
                 # Method 2: Search contacts
                 try:
@@ -160,7 +294,7 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
                                     if group_info not in found_groups:
                                         found_groups.append(group_info)
                             except Exception as e:
-                                current_app.logger.warning(f"Error getting details for group {chat.title}: {e}")
+                                logger.warning(f"Error getting details for group {chat.title}: {e}")
                                 # Still add basic information
                                 group_info = {
                                     "id": str(uuid.uuid4()),
@@ -175,7 +309,7 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
                                 if group_info not in found_groups:
                                     found_groups.append(group_info)
                 except Exception as e:
-                    current_app.logger.warning(f"Error in contact search for keyword '{keyword}': {e}")
+                    logger.warning(f"Error in contact search for keyword '{keyword}': {e}")
                 
                 # Method 3: Check dialogues that match the keyword
                 # This is slower but more reliable
@@ -206,7 +340,7 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
                                     if group_info not in found_groups:
                                         found_groups.append(group_info)
                             except Exception as e:
-                                current_app.logger.warning(f"Error getting details for group {entity.title}: {e}")
+                                logger.warning(f"Error getting details for group {entity.title}: {e}")
                                 # Still add basic information
                                 group_info = {
                                     "id": str(uuid.uuid4()),
@@ -222,11 +356,11 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
                                     found_groups.append(group_info)
             
             except FloodWaitError as e:
-                current_app.logger.error(f"FloodWaitError: Need to wait {e.seconds} seconds")
+                logger.error(f"FloodWaitError: Need to wait {e.seconds} seconds")
                 await asyncio.sleep(min(e.seconds, 10))  # Sleep for at most 10 seconds to not block the request too long
             
             except Exception as e:
-                current_app.logger.error(f"Error searching for keyword '{keyword}': {e}")
+                logger.error(f"Error searching for keyword '{keyword}': {e}")
             
             # Check if we have enough results
             if len(found_groups) >= max_results:
@@ -236,39 +370,62 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
         await client.disconnect()
     
     except Exception as e:
-        current_app.logger.error(f"Error in Telegram group search: {e}")
+        logger.error(f"Error in Telegram group search: {e}")
     
     # Apply language filter if specified
     if language != 'all':
         found_groups = [g for g in found_groups if g['language'] == language]
     
     # Limit the results
-    return found_groups[:max_results]
-
-
-def detect_language(text, target_language):
-    """
-    Basic language detection based on the text
+    filtered_results = found_groups[:max_results]
     
-    This is a simple implementation. In a real application, you'd use
-    a proper language detection library like langdetect or fastText.
+    # Cache the results for future use
+    save_search_results_to_cache(keywords, language, filtered_results)
+    
+    return filtered_results
+
+
+def detect_language(text: str, target_language: str) -> str:
     """
-    # For now, just use a simple mapping of language codes to typical characters
-    if target_language == 'all':
-        # If no specific language is requested, try to detect
-        if any(c in text for c in 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'):
-            return 'ru'
-        elif any(c in text for c in 'áéíóúüñ'):
-            return 'es'
-        elif any(c in text for c in 'àâäèéêëîïôœùûüÿç'):
-            return 'fr'
-        elif any(c in text for c in 'äöüß'):
-            return 'de'
-        else:
-            return 'en'  # Default to English
-    else:
-        # Return the target language if specified
+    Detect language of text using langdetect library if available, 
+    or fall back to basic detection
+    
+    Args:
+        text: Text to detect language for
+        target_language: Target language or 'all'
+        
+    Returns:
+        Detected language code or target_language if specified
+    """
+    # If a specific language is requested, just return it
+    if target_language != 'all':
         return target_language
+    
+    # Try to detect language using langdetect if available
+    if LANGDETECT_AVAILABLE:
+        try:
+            # We need enough text to detect language reliably
+            if len(text) >= 10:  
+                return langdetect_detect(text)
+            # If text is too short, fall back to basic detection
+        except LangDetectException:
+            # If detection fails, fall back to basic detection
+            pass
+    
+    # Basic language detection as fallback
+    text_lower = text.lower()
+    
+    # Check for language-specific characters
+    if any(c in text_lower for c in 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'):
+        return 'ru'
+    elif any(c in text_lower for c in 'áéíóúüñ'):
+        return 'es'
+    elif any(c in text_lower for c in 'àâäèéêëîïôœùûüÿç'):
+        return 'fr'
+    elif any(c in text_lower for c in 'äöüß'):
+        return 'de'
+    else:
+        return 'en'  # Default to English
 
 
 def search_telegram_groups(keywords: List[str], language: str = 'all') -> List[Dict[str, Any]]:
@@ -278,51 +435,5 @@ def search_telegram_groups(keywords: List[str], language: str = 'all') -> List[D
     try:
         return asyncio.run(search_telegram_groups_async(keywords, language))
     except Exception as e:
-        current_app.logger.error(f"Error in search_telegram_groups: {e}")
+        logger.error(f"Error in search_telegram_groups: {e}")
         return []
-
-
-# Fallback search with mock data (use only if real search fails)
-def fallback_search_telegram_groups(keywords: List[str], language: str = 'all') -> List[Dict[str, Any]]:
-    """
-    Fallback implementation that generates mock data for demo purposes
-    Only use this if the real search fails completely or for testing
-    """
-    import random
-    
-    current_app.logger.warning("Using fallback (mock) group search - for testing only")
-    
-    found_groups = []
-    languages = ['en', 'ru', 'es', 'fr', 'de'] if language == 'all' else [language]
-    
-    prefixes = ['', 'The ', 'Official ', 'Best ', 'Top ', 'Ultimate ']
-    suffixes = ['Group', 'Community', 'Club', 'Network', 'Chat', 'Hub', 'Center', 'World']
-    
-    for keyword in keywords:
-        # Generate 1-5 groups per keyword
-        for _ in range(random.randint(1, 5)):
-            # Create random group data
-            prefix = random.choice(prefixes)
-            suffix = random.choice(suffixes)
-            group_name = f"{prefix}{keyword.capitalize()} {suffix}"
-            
-            username = f"{keyword.lower()}_{random.randint(1000, 9999)}"
-            members = random.randint(100, 100000)
-            online = random.randint(5, min(members // 10, 2000))
-            group_language = random.choice(languages)
-            
-            group = {
-                "id": str(uuid.uuid4()),
-                "telegram_id": random.randint(1000000000, 9999999999),
-                "title": group_name,
-                "username": username,
-                "members": members,
-                "online": online,
-                "language": group_language,
-                "description": f"This is a group about {keyword}"
-            }
-            
-            found_groups.append(group)
-    
-    return found_groups
-
