@@ -45,4 +45,13 @@ config_by_name = {
 def get_config():
     """Get configuration based on environment"""
     env = os.environ.get('FLASK_ENV', 'default')
-    return config_by_name[env]
+    config_class = config_by_name[env]
+    
+    # Convert config class attributes to dictionary
+    config_dict = {}
+    for key in dir(config_class):
+        # Skip private attributes and methods
+        if not key.startswith('__') and not callable(getattr(config_class, key)):
+            config_dict[key] = getattr(config_class, key)
+    
+    return config_dict

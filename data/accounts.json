@@ -1,0 +1,21 @@
+[
+  {
+    "id": "74f078d3-0474-436a-a754-83f41c59cb3b",
+    "phone": "+84923626554",
+    "name": "admin pidaras 4",
+    "username": "cheifbdj",
+    "avatar": "/uploads/48de5a54-ee6b-495b-bb82-8c3e0bf2fac4.jpg",
+    "status": "\u041e\u043a",
+    "limits": {
+      "daily_invites": 30,
+      "daily_messages": 50
+    },
+    "created_at": "2025-04-06T18:16:05.413986",
+    "cooldown_until": null,
+    "list_id": "main",
+    "premium": false,
+    "list_ids": [
+      "main"
+    ]
+  }
+]

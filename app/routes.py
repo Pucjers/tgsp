@@ -1,4 +1,4 @@
-from flask import Blueprint, send_from_directory, render_template, current_app
+from flask import Blueprint, send_from_directory, render_template, current_app, redirect
 import os
 
 main_bp = Blueprint('main', __name__)
@@ -8,6 +8,12 @@ main_bp = Blueprint('main', __name__)
 def index():
     """Serve the main application page"""
     return send_from_directory(current_app.template_folder, 'index.html')
+
+
+@main_bp.route('/index.html')
+def index_html():
+    """Redirect /index.html to root for consistency"""
+    return redirect('/', code=301)
 
 
 @main_bp.route('/group-parser.html')

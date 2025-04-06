@@ -28,7 +28,21 @@ def create_app(config=None):
     
     # Override with provided config if any
     if config:
-        app.config.update(config)
+        # Instead of app.config.update(config), let's extract config attributes
+        if hasattr(config, '__dict__'):
+            # If config is an object with __dict__ attribute
+            for key, value in vars(config).items():
+                if not key.startswith('__'):
+                    app.config[key] = value
+        else:
+            # Handle other cases (like dictionary)
+            try:
+                for key in config:
+                    if key.isupper():  # Flask config keys are uppercase by convention
+                        app.config[key] = config[key]
+            except TypeError:
+                # If config is neither an object with __dict__ nor iterable
+                pass
     
     # Enable CORS
     CORS(app)
