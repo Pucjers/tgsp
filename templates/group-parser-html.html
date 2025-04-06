@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TgNinja - Group Parser</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+    <style>
+        /* Additional styles specific to group parser */
+        .parser-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .parser-controls {
+            background-color: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .parser-form {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .keyword-input-container {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .keyword-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .keyword-chip {
+            background-color: rgba(62, 142, 208, 0.1);
+            color: var(--primary-color);
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .keyword-chip i {
+            margin-left: 6px;
+            cursor: pointer;
+        }
+        
+        .results-section {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            overflow: hidden;
+        }
+        
+        .found-groups {
+            flex: 2;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .saved-groups {
+            flex: 1;
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            padding: 15px 20px;
+            background-color: #f9fafc;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .section-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .groups-list {
+            list-style: none;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .group-item {
+            display: flex;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            transition: var(--transition);
+        }
+        
+        .group-item:hover {
+            background-color: rgba(0, 0, 0, 0.01);
+        }
+        
+        .group-info {
+            flex: 1;
+        }
+        
+        .group-title {
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+        
+        .group-details {
+            display: flex;
+            font-size: 13px;
+            color: var(--text-light);
+            gap: 12px;
+        }
+        
+        .group-detail {
+            display: flex;
+            align-items: center;
+        }
+        
+        .group-detail i {
+            margin-right: 4px;
+            font-size: 12px;
+        }
+        
+        .group-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .group-list-selector {
+            margin-right: 10px;
+        }
+        
+        .parser-progress {
+            height: 4px;
+            background-color: #f1f5f9;
+            width: 100%;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .parser-progress-bar {
+            height: 100%;
+            background-color: var(--primary-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .empty-results {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-light);
+        }
+        
+        .empty-results i {
+            font-size: 36px;
+            margin-bottom: 10px;
+            opacity: 0.4;
+        }
+        
+        @media (max-width: 992px) {
+            .results-section {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="logo.svg" alt="TgNinja Logo" class="logo">
+                <h1>TgNinja</h1>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul id="sidebar-menu">
+                    <li data-page="accounts">
+                        <i class="fas fa-users"></i>
+                        <span>Accounts</span>
+                    </li>
+                    <li data-page="parser" class="active">
+                        <i class="fas fa-search"></i>
+                        <span>Group Parser</span>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="settings-btn" class="btn btn-icon">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="help-btn" class="btn btn-icon">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+        </aside>
+        
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <h2>Group Parser</h2>
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <i class="fas fa-search"></i>
+                            <span>Find and save Telegram groups</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <section class="accounts-section">
+                <div class="parser-container">
+                    <!-- Parser Controls -->
+                    <div class="parser-controls">
+                        <form class="parser-form" id="parser-form">
+                            <div class="keyword-input-container">
+                                <div class="form-group">
+                                    <label for="keyword-input">Keywords</label>
+                                    <div style="display: flex; gap: 10px;">
+                                        <input type="text" id="keyword-input" placeholder="Enter keywords to search...">
+                                        <button type="button" id="add-keyword-btn" class="btn btn-secondary">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="keyword-chips" id="keyword-chips">
+                                    <!-- Keywords will be added here -->
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="language-select">Language</label>
+                                <select id="language-select">
+                                    <option value="all">All Languages</option>
+                                    <option value="en">English</option>
+                                    <option value="ru">Russian</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="fr">French</option>
+                                    <option value="de">German</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="group-list-select">Save to List</label>
+                                <select id="group-list-select">
+                                    <!-- Lists will be loaded here -->
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="align-self: flex-end;">
+                                <button type="submit" id="start-parsing-btn" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Start Parsing
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="parser-progress" id="parser-progress">
+                            <div class="parser-progress-bar" id="parser-progress-bar"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Section -->
+                    <div class="results-section">
+                        <!-- Found Groups -->
+                        <div class="found-groups">
+                            <div class="section-header">
+                                <h3>Found Groups</h3>
+                                <div>
+                                    <button id="save-all-btn" class="btn btn-text" disabled>
+                                        <i class="fas fa-save"></i> Save All
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <ul class="groups-list" id="found-groups-list">
+                                <!-- Empty state -->
+                                <div class="empty-results" id="empty-found-groups">
+                                    <i class="fas fa-search"></i>
+                                    <p>Start parsing to find groups</p>
+                                </div>
+                                
+                                <!-- Groups will be added here -->
+                            </ul>
+                        </div>
+                        
+                        <!-- Saved Groups -->
+                        <div class="saved-groups">
+                            <div class="section-header">
+                                <h3>Saved Groups</h3>
+                                <select id="saved-list-filter" class="group-list-selector">
+                                    <!-- Lists will be loaded here -->
+                                </select>
+                            </div>
+                            
+                            <ul class="groups-list" id="saved-groups-list">
+                                <!-- Empty state -->
+                                <div class="empty-results" id="empty-saved-groups">
+                                    <i class="fas fa-bookmark"></i>
+                                    <p>No saved groups yet</p>
+                                </div>
+                                
+                                <!-- Groups will be added here -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- SVG Assets -->
+    <svg style="display: none;">
+        <symbol id="logo" viewBox="0 0 24 24">
+            <path d="M12,2 C17.5228,2 22,6.47715 22,12 C22,17.5228 17.5228,22 12,22 C6.47715,22 2,17.5228 2,12 C2,6.47715 6.47715,2 12,2 Z M12,5 C8.13401,5 5,8.13401 5,12 C5,15.866 8.13401,19 12,19 C15.866,19 19,15.866 19,12 C19,8.13401 15.866,5 12,5 Z M14.1213,8.46447 L15.5355,9.87868 L12,13.4142 L8.46447,9.87868 L9.87868,8.46447 L12,10.5858 L14.1213,8.46447 Z" fill="currentColor"/>
+        </symbol>
+    </svg>
+    
+    <script src="group-parser.js"></script>
+</body>
+</html>

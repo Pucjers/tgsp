@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TgNinja - Telegram Account Manager</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="logo.svg" alt="TgNinja Logo" class="logo">
+                <h1>TgNinja</h1>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul id="sidebar-menu">
+                    <li class="active" data-page="accounts">
+                        <i class="fas fa-users"></i>
+                        <span>Accounts</span>
+                    </li>
+                    <li data-page="parser">
+                        <i class="fas fa-search"></i>
+                        <span>Group Parser</span>
+                    </li>
+                </ul>
+                
+                <div class="sidebar-divider"></div>
+                
+                <ul id="account-lists">
+                    <li class="active" data-list-id="all">
+                        <i class="fas fa-layer-group"></i>
+                        <span>All Accounts</span>
+                        <span class="account-count">0</span>
+                    </li>
+                    <!-- Account lists will be loaded here -->
+                </ul>
+                
+                <div class="sidebar-actions">
+                    <button id="add-list-btn" class="btn btn-text">
+                        <i class="fas fa-plus"></i> Add List
+                    </button>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="settings-btn" class="btn btn-icon">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="help-btn" class="btn btn-icon">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+        </aside>
+        
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <h2 id="current-list-name">All Accounts</h2>
+                    <div class="stats-container" id="account-stats">
+                        <!-- Stats will be loaded here -->
+                    </div>
+                </div>
+                
+                <div class="header-right">
+                    <div class="search-container">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-input" placeholder="Search accounts...">
+                    </div>
+                    
+                    <div class="actions-container">
+                        <button id="check-selected-btn" class="btn btn-secondary" disabled>
+                            <i class="fas fa-check-circle"></i> Check Selected
+                        </button>
+                        <button id="import-tdata-btn" class="btn btn-secondary">
+                            <i class="fas fa-file-import"></i> Import TData
+                        </button>
+                        <button id="add-account-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Account
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <section class="accounts-section">
+                <div class="table-container">
+                    <table class="accounts-table">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-col">
+                                    <input type="checkbox" id="select-all-checkbox">
+                                </th>
+                                <th>Account</th>
+                                <th>Phone</th>
+                                <th>Status</th>
+                                <th>Premium</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounts-table-body">
+                            <!-- Accounts will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="empty-state" class="empty-state">
+                    <img src="empty-state.svg" alt="No accounts" class="empty-illustration">
+                    <h3>No accounts found</h3>
+                    <p>Add your first Telegram account to get started</p>
+                    <button class="btn btn-primary" id="empty-add-btn">
+                        <i class="fas fa-plus"></i> Add Account
+                    </button>
+                </div>
+                
+                <div class="table-footer">
+                    <div class="selection-actions" id="selection-actions" style="display: none;">
+                        <span id="selected-count">0 selected</span>
+                        <div class="actions">
+                            <button id="move-selected-btn" class="btn btn-text" disabled>
+                                <i class="fas fa-exchange-alt"></i> Move to
+                            </button>
+                            <button id="delete-selected-btn" class="btn btn-text btn-danger" disabled>
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Modal Templates -->
+    <div class="modal-container" id="modal-container">
+        <!-- Add Account Modal -->
+        <div class="modal" id="add-account-modal">
+            <div class="modal-header">
+                <h3>Add Account</h3>
+                <button class="btn-close" data-close-modal="add-account-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-account-form">
+                    <div class="form-row">
+                        <div class="avatar-upload">
+                            <div class="avatar-preview" id="avatar-preview">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <label for="avatar-input" class="avatar-upload-btn">
+                                <i class="fas fa-camera"></i>
+                            </label>
+                            <input type="file" id="avatar-input" accept="image/*" style="display: none;">
+                            <input type="hidden" id="avatar-url" name="avatar">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Name</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone Number</label>
+                            <input type="tel" id="phone" name="phone" required placeholder="+1234567890">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="username">Username (optional)</label>
+                            <input type="text" id="username" name="username" placeholder="@username">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="account-list">List</label>
+                            <select id="account-list" name="list_id">
+                                <!-- Lists will be loaded here -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row form-limits">
+                        <h4>Daily Limits</h4>
+                        <div class="form-group">
+                            <label for="limit-invites">Invites</label>
+                            <input type="number" id="limit-invites" name="limits.daily_invites" value="30" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="limit-messages">Messages</label>
+                            <input type="number" id="limit-messages" name="limits.daily_messages" value="50" min="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-account-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-account-btn">Save Account</button>
+            </div>
+        </div>
+        
+        <!-- Add List Modal -->
+        <div class="modal" id="add-list-modal">
+            <div class="modal-header">
+                <h3>Add List</h3>
+                <button class="btn-close" data-close-modal="add-list-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-list-form">
+                    <div class="form-group">
+                        <label for="list-name">List Name</label>
+                        <input type="text" id="list-name" name="name" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-list-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-list-btn">Create List</button>
+            </div>
+        </div>
+        
+        <!-- Move Accounts Modal -->
+        <div class="modal" id="move-accounts-modal">
+            <div class="modal-header">
+                <h3>Move Accounts</h3>
+                <button class="btn-close" data-close-modal="move-accounts-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="move-accounts-message"></p>
+                <div class="form-group">
+                    <label for="target-list">Target List</label>
+                    <select id="target-list" name="target_list_id">
+                        <!-- Lists will be loaded here -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="move-accounts-modal">Cancel</button>
+                <button class="btn btn-primary" id="confirm-move-btn">Move Accounts</button>
+            </div>
+        </div>
+        
+        <!-- Delete Confirmation Modal -->
+        <div class="modal" id="delete-confirmation-modal">
+            <div class="modal-header">
+                <h3>Delete Accounts</h3>
+                <button class="btn-close" data-close-modal="delete-confirmation-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p id="delete-confirmation-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="delete-confirmation-modal">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+        
+        <!-- Import TData Modal -->
+        <div class="modal" id="import-tdata-modal">
+            <div class="modal-header">
+                <h3>Import TData</h3>
+                <button class="btn-close" data-close-modal="import-tdata-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="tdata-upload-area" id="tdata-upload-area">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h4>Drag & Drop TData ZIP file here</h4>
+                    <p>or</p>
+                    <label for="tdata-input" class="btn btn-secondary">Browse Files</label>
+                    <input type="file" id="tdata-input" accept=".zip" style="display: none;">
+                </div>
+                <div class="upload-status" id="upload-status" style="display: none;">
+                    <div class="upload-progress">
+                        <div class="progress-bar" id="upload-progress-bar"></div>
+                    </div>
+                    <p id="upload-status-text">Uploading...</p>
+                </div>
+                
+                <!-- New List Selection -->
+                <div class="form-group" id="tdata-list-selection" style="margin-top: 20px;">
+                    <label for="tdata-target-list">Add to List</label>
+                    <select id="tdata-target-list" name="target_list_id">
+                        <!-- Lists will be loaded here -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="import-tdata-modal">Cancel</button>
+                <button class="btn btn-primary" id="import-tdata-submit-btn" disabled>Import</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- SVG Assets -->
+    <svg style="display: none;">
+        <symbol id="logo" viewBox="0 0 24 24">
+            <path d="M12,2 C17.5228,2 22,6.47715 22,12 C22,17.5228 17.5228,22 12,22 C6.47715,22 2,17.5228 2,12 C2,6.47715 6.47715,2 12,2 Z M12,5 C8.13401,5 5,8.13401 5,12 C5,15.866 8.13401,19 12,19 C15.866,19 19,15.866 19,12 C19,8.13401 15.866,5 12,5 Z M14.1213,8.46447 L15.5355,9.87868 L12,13.4142 L8.46447,9.87868 L9.87868,8.46447 L12,10.5858 L14.1213,8.46447 Z" fill="currentColor"/>
+        </symbol>
+    </svg>
+    
+    <script src="scripts.js"></script>
+</body>
+</html>

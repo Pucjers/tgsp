@@ -1,0 +1,27 @@
+from flask import Blueprint, send_from_directory, render_template, current_app
+import os
+
+main_bp = Blueprint('main', __name__)
+
+
+@main_bp.route('/')
+def index():
+    """Serve the main application page"""
+    return send_from_directory(current_app.template_folder, 'index.html')
+
+
+@main_bp.route('/group-parser.html')
+def group_parser():
+    """Serve the group parser page"""
+    return send_from_directory(current_app.template_folder, 'group_parser.html')
+
+
+@main_bp.route('/<path:filename>')
+def static_files(filename):
+    """Serve static files"""
+    if filename.startswith('uploads/'):
+        # Strip 'uploads/' prefix and serve from UPLOAD_FOLDER
+        file_path = filename[8:]  # Remove 'uploads/'
+        return send_from_directory(current_app.config['UPLOAD_FOLDER'], file_path)
+    
+    return send_from_directory(current_app.static_folder, filename)
