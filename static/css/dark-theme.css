@@ -1,0 +1,189 @@
+/* Dark Theme Variables */
+:root {
+    /* Light theme variables (default) */
+    --primary-color: #3e8ed0;
+    --primary-hover: #2d7fc1;
+    --danger-color: #f14668;
+    --danger-hover: #e03a5e;
+    --success-color: #48c78e;
+    --warning-color: #ffd975;
+    --light-bg: #f5f7fa;
+    --border-color: #e0e5ec;
+    --text-color: #363636;
+    --text-light: #7a7a7a;
+    --text-lighter: #b5b5b5;
+    --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.1);
+    --sidebar-width: 280px;
+    --header-height: 72px;
+    --border-radius: 8px;
+    --transition: all 0.2s ease;
+    --bg-white: #ffffff;
+    --table-header-bg: #f9fafc;
+}
+
+/* Dark theme variables */
+[data-theme="dark"] {
+    --primary-color: #4e9fe0;
+    --primary-hover: #3e90d0;
+    --light-bg: #1a1d21;
+    --border-color: #2c3038;
+    --text-color: #e4e6eb;
+    --text-light: #b0b3b8;
+    --text-lighter: #848689;
+    --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.3);
+    --bg-white: #242526;
+    --table-header-bg: #18191a;
+}
+
+/* Dark theme specific styles */
+[data-theme="dark"] body {
+    background-color: var(--light-bg);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .sidebar {
+    background-color: var(--bg-white);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .main-header {
+    background-color: var(--bg-white);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .accounts-table th {
+    background-color: var(--table-header-bg);
+}
+
+[data-theme="dark"] .accounts-table td {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .table-container, 
+[data-theme="dark"] .table-footer,
+[data-theme="dark"] .parser-controls,
+[data-theme="dark"] .found-groups,
+[data-theme="dark"] .saved-groups,
+[data-theme="dark"] .section-header {
+    background-color: var(--bg-white);
+}
+
+[data-theme="dark"] .keyword-chip {
+    background-color: rgba(78, 159, 224, 0.2);
+}
+
+[data-theme="dark"] .accounts-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .group-item:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .btn-secondary {
+    background-color: #3a3b3c;
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .btn-secondary:hover:not(:disabled) {
+    background-color: #4a4b4c;
+}
+
+[data-theme="dark"] .btn-text {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .btn-text:hover:not(:disabled) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="tel"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] select {
+    background-color: #3a3b3c;
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .account-avatar {
+    background-color: #3a3b3c;
+}
+
+[data-theme="dark"] .modal {
+    background-color: var(--bg-white);
+}
+
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .tdata-upload-area {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .tdata-upload-area.dragover {
+    background-color: rgba(78, 159, 224, 0.1);
+}
+
+/* Status badge colors for dark theme */
+[data-theme="dark"] .status-badge.ok {
+    background-color: rgba(72, 199, 142, 0.2);
+}
+
+[data-theme="dark"] .status-badge.blocked {
+    background-color: rgba(241, 70, 104, 0.2);
+}
+
+[data-theme="dark"] .status-badge.temp-block {
+    background-color: rgba(255, 217, 117, 0.2);
+}
+
+[data-theme="dark"] .status-badge.unverified {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--text-light);
+    transition: var(--transition);
+}
+
+.theme-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .theme-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Show/hide based on current theme */
+.light-icon {
+    display: none;
+}
+
+.dark-icon {
+    display: inline-block;
+}
+
+[data-theme="dark"] .light-icon {
+    display: inline-block;
+}
+
+[data-theme="dark"] .dark-icon {
+    display: none;
+}
