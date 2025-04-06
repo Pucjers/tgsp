@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from telethon.sync import TelegramClient
 from telethon.tl.functions.messages import SearchGlobalRequest
 from telethon.tl.functions.contacts import SearchRequest
-from telethon.tl.types import InputPeerEmpty, Channel, Chat, User, ChatEmpty
+from telethon.tl.types import InputPeerEmpty, Channel, Chat, User, ChatEmpty, InputMessagesFilterEmpty
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.errors import FloodWaitError
@@ -222,9 +222,10 @@ async def search_telegram_groups_async(keywords: List[str], language: str = 'all
             try:
                 # Method 1: Search global
                 try:
+                    # Fix: Use proper import and provide explicit filter
                     global_results = await client(SearchGlobalRequest(
                         q=keyword,
-                        filter=None,  # Can use InputMessagesFilterEmpty() for all types
+                        filter=InputMessagesFilterEmpty(),  # Explicit filter instead of None
                         min_date=None,
                         max_date=None,
                         offset_rate=0,
