@@ -789,7 +789,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     };
-
+    function setupSidebarNavigation() {
+        const sidebarMenu = document.getElementById('sidebar-menu');
+        
+        if (sidebarMenu) {
+            sidebarMenu.addEventListener('click', (event) => {
+                const item = event.target.closest('li');
+                if (!item) return;
+                
+                const page = item.dataset.page;
+                
+                if (page === 'parser') {
+                    // Navigate to the group parser page
+                    window.location.href = '/group-parser.html';
+                }
+                // No need to handle the accounts page as we're already on it
+            });
+        }
+    }
     const handleCheckSelected = async () => {
         if (state.selectedAccounts.size === 0) return;
         
@@ -932,134 +949,106 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
         }
-        function setupSidebarNavigation() {
-            const sidebarMenu = document.getElementById('sidebar-menu');
-            
-            if (sidebarMenu) {
-                sidebarMenu.addEventListener('click', (event) => {
-                    const item = event.target.closest('li');
-                    if (!item) return;
-                    
-                    const page = item.dataset.page;
-                    
-                    if (page === 'parser') {
-                        // Navigate to the group parser page
-                        window.location.href = '/group-parser.html';
-                    }
-                    // No need to handle the accounts page as we're already on it
-                });
-            }
-        }
         // Setup the drag and drop functionality
         setupDragAndDrop();
         
-        // Remove previous event listener from submit button and add new one
-        submitBtn.onclick = async function() {
-            if (!selectedFile) return;
-            
-            // Show progress
-            progressBar.style.width = '0%';
-            statusText.textContent = 'Importing...';
-            submitBtn.disabled = true;
-            
-            // Get the selected list ID
-            const targetListId = tdataTargetList.value;
-            
-            // Simulate progress (actual progress events would be better)
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 5;
-                if (progress > 90) {
-                    clearInterval(interval);
-                }
-                progressBar.style.width = `${progress}%`;
-            }, 300);
-            
-            // Create FormData with the zip file and target list ID
-            const formData = new FormData();
-            formData.append('tdata_zip', selectedFile);
-            formData.append('target_list_id', targetListId);
-            
-            console.log("Starting import process with file:", selectedFile.name);
-            console.log("Target list ID:", targetListId);
-            
-            try {
-                // Import TData with a longer timeout
-                console.log("Sending request to /api/accounts/import-tdata-zip");
-                
-                // Use fetch with a longer timeout by wrapping in a Promise.race
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
-                
-                const response = await fetch('/api/accounts/import-tdata-zip', {
-                    method: 'POST',
-                    body: formData,
-                    signal: controller.signal
-                });
-                
-                // Clear the timeout
-                clearTimeout(timeoutId);
-                
-                console.log("Server response received:", response.status, response.statusText);
-                
-                if (!response.ok) {
-                    console.error("Server returned error status:", response.status);
-                    let errorText = await response.text();
-                    console.error("Error details:", errorText);
-                    throw new Error(`Server returned ${response.status}: ${errorText || response.statusText}`);
-                }
-                
-                let responseText = await response.text();
-                console.log("Raw response:", responseText);
-                
-                // Parse the response
-                let result;
-                try {
-                    result = JSON.parse(responseText);
-                    console.log("Server response parsed:", result);
-                } catch (e) {
-                    console.error("Failed to parse response as JSON:", e);
-                    throw new Error("Invalid JSON response from server");
-                }
-                
-                // Clear the interval
-                clearInterval(interval);
-                
-                if (result && result.success) {
-                    console.log("Import successful!");
-                    progressBar.style.width = '100%';
-                    statusText.textContent = 'Import successful!';
-                    
-                    setTimeout(() => {
-                        hideModal('import-tdata-modal');
-                        showToast('Account imported successfully', 'success');
-                        
-                        // Reload accounts
-                        loadAccounts(state.currentListId);
-                        loadStats(state.currentListId);
-                    }, 1000);
-                } else {
-                    console.error("Import failed:", result?.error || "No error message");
-                    progressBar.style.width = '0%';
-                    statusText.textContent = `Error: ${result?.error || 'Failed to import account'}`;
-                    submitBtn.disabled = false;
-                }
-            } catch (error) {
-                console.error("Exception during import:", error);
-                clearInterval(interval);
-                progressBar.style.width = '0%';
-                
-                // Provide more specific error messages
-                if (error.name === 'AbortError') {
-                    statusText.textContent = 'Error: Request timed out. The server may be busy processing the TData.';
-                } else {
-                    statusText.textContent = `Error: ${error.message || 'Failed to import account'}`;
-                }
-                
-                submitBtn.disabled = false;
-            }
-        };
+        // Handle confirm button click
+submitBtn.onclick = async function() {
+    if (!selectedFile) return;
+    
+    // Show progress
+    progressBar.style.width = '0%';
+    statusText.textContent = 'Importing...';
+    submitBtn.disabled = true;
+    
+    // Get the selected list ID
+    const targetListId = tdataTargetList.value;
+    
+    // Simulate progress (actual progress events would be better)
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += 5;
+        if (progress > 90) {
+            clearInterval(interval);
+        }
+        progressBar.style.width = `${progress}%`;
+    }, 300);
+    
+    // Create FormData with the zip file and target list ID
+    const formData = new FormData();
+    formData.append('tdata_zip', selectedFile);
+    formData.append('target_list_id', targetListId);
+    
+    console.log("Starting import process with file:", selectedFile.name);
+    console.log("Target list ID:", targetListId);
+    
+    try {
+        // Import TData with a longer timeout
+        console.log("Sending request to /api/accounts/import-tdata-zip");
         
+        // Use fetch with a longer timeout by wrapping in a Promise.race
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        
+        const response = await fetch('/api/accounts/import-tdata-zip', {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
+        });
+        
+        // Clear the timeout
+        clearTimeout(timeoutId);
+        
+        console.log("Server response received:", response.status, response.statusText);
+        
+        if (!response.ok) {
+            console.error("Server returned error status:", response.status);
+            let errorText = await response.text();
+            console.error("Error details:", errorText);
+            throw new Error(`Server returned ${response.status}: ${errorText || response.statusText}`);
+        }
+        
+        let result = await response.json();
+        console.log("Server response parsed:", result);
+        
+        // Clear the interval
+        clearInterval(interval);
+        
+        if (result && result.success) {
+            console.log("Import successful!");
+            progressBar.style.width = '100%';
+            statusText.textContent = 'Import successful!';
+            
+            setTimeout(() => {
+                hideModal('import-tdata-modal');
+                showToast('Account imported successfully', 'success');
+                
+                // Reload accounts
+                loadAccounts(state.currentListId);
+                loadStats(state.currentListId);
+            }, 1000);
+        } else {
+            console.error("Import failed:", result?.error || "No error message");
+            progressBar.style.width = '0%';
+            statusText.textContent = `Error: ${result?.error || 'Failed to import account'}`;
+            submitBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error("Exception during import:", error);
+        clearInterval(interval);
+        progressBar.style.width = '0%';
+        
+        // Provide more specific error messages
+        if (error.name === 'AbortError') {
+            statusText.textContent = 'Error: Request timed out. The server may be busy processing the TData.';
+        } else {
+            statusText.textContent = `Error: ${error.message || 'Failed to import account'}`;
+        }
+        
+        submitBtn.disabled = false;
+    }
+};
+    
         // Handle confirm button click
         submitBtn.onclick = async function() {
             if (!selectedFile) return;
@@ -1329,8 +1318,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Data Operations
     const loadAccounts = async (listId = 'all') => {
         // Add cache busting parameter to ensure we get fresh data
-        const timestamp = new Date().getTime();
-        const accounts = await api.getAccounts(listId, timestamp);
+        const accounts = await api.getAccounts(listId);
         state.accounts = accounts;
         renderAccounts(accounts);
     };

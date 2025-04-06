@@ -166,7 +166,7 @@ def upload_avatar():
 
 
 @accounts_bp.route('/import-tdata-zip', methods=['POST'])
-def import_tdata():
+def import_tdata_zip_endpoint():
     """Import account from TData ZIP file"""
     if 'tdata_zip' not in request.files:
         return jsonify({"error": "No TData ZIP file provided"}), 400
