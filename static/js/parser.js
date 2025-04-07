@@ -230,6 +230,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 showToast('Error moving groups', 'error');
                 return null;
             }
+        },
+        async addGroupToList(groupId, targetListId) {
+            try {
+                const response = await fetch('/api/groups/move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        group_ids: [groupId],
+                        target_list_id: targetListId,
+                        action: 'add'
+                    })
+                });
+                if (!response.ok) throw new Error('Failed to add group to list');
+                return await response.json();
+            } catch (error) {
+                console.error('Error adding group to list:', error);
+                showToast('Error adding group to list', 'error');
+                return null;
+            }
+        },
+    
+        async removeGroupFromList(groupId, listId) {
+            try {
+                const response = await fetch('/api/groups/move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        group_ids: [groupId],
+                        target_list_id: listId,
+                        action: 'remove'
+                    })
+                });
+                if (!response.ok) throw new Error('Failed to remove group from list');
+                return await response.json();
+            } catch (error) {
+                console.error('Error removing group from list:', error);
+                showToast('Error removing group from list', 'error');
+                return null;
+            }
         }
     };
 
@@ -273,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         elements.savedListFilter.innerHTML = savedListFilterHTML;
     };
-
+    
     const renderFoundGroups = () => {
         if (state.foundGroups.length === 0) {
             elements.emptyFoundGroups.style.display = 'block';
@@ -330,6 +369,189 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
+    function createAddToListModal() {
+        const modalHtml = `
+        <div class="modal" id="add-to-list-modal">
+            <div class="modal-header">
+                <h3>Add to List</h3>
+                <button class="btn-close" data-close-modal="add-to-list-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="add-to-list-message">Select the list to add this group to:</p>
+                <div class="form-group">
+                    <select id="add-to-list-select">
+                        <!-- Lists will be loaded here -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-to-list-modal">Cancel</button>
+                <button class="btn btn-primary" id="confirm-add-to-list-btn">Add to List</button>
+            </div>
+        </div>`;
+        
+        // Add the modal to the container
+        const modalContainer = document.getElementById('modal-container');
+        if (modalContainer) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = modalHtml;
+            modalContainer.appendChild(tempDiv.firstElementChild);
+        }
+    }
+    
+    // Function to show add to list modal
+    function showAddToListModal(groupId, groupTitle) {
+        const modalSelect = document.getElementById('add-to-list-select');
+        const confirmBtn = document.getElementById('confirm-add-to-list-btn');
+        const messageEl = document.getElementById('add-to-list-message');
+        
+        // Clear previous options
+        modalSelect.innerHTML = '';
+        
+        // Populate with available lists
+        state.groupLists.forEach(list => {
+            const option = document.createElement('option');
+            option.value = list.id;
+            option.textContent = list.name;
+            modalSelect.appendChild(option);
+        });
+        
+        // Set the message
+        messageEl.textContent = `Select the list to add "${groupTitle}" to:`;
+        
+        // Remove any existing event listeners
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        
+        // Add event listener for the confirm button
+        newConfirmBtn.addEventListener('click', async () => {
+            const targetListId = modalSelect.value;
+            
+            // Show loading state
+            newConfirmBtn.disabled = true;
+            newConfirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+            
+            try {
+                const result = await api.addGroupToList(groupId, targetListId);
+                
+                if (result && result.updated_count > 0) {
+                    showToast('Group added to list successfully', 'success');
+                    
+                    // Reload saved groups to reflect changes
+                    await loadSavedGroups(state.currentGroupListId);
+                    
+                    // Update group counts
+                    await updateGroupCounts();
+                    
+                    // Hide the modal
+                    hideModal('add-to-list-modal');
+                } else {
+                    showToast('Group is already in this list', 'info');
+                }
+            } catch (error) {
+                console.error('Error adding group to list:', error);
+                showToast('Error adding group to list', 'error');
+            } finally {
+                // Reset button state
+                newConfirmBtn.disabled = false;
+                newConfirmBtn.innerHTML = 'Add to List';
+            }
+        });
+        
+        // Show the modal
+        showModal('add-to-list-modal');
+    }
+    
+    // Function to add context menu for group items
+    function createGroupContextMenu() {
+        const contextMenuHtml = `
+        <div class="group-context-menu" id="group-context-menu">
+            <div class="group-context-menu-item" id="add-to-list-menu-item">
+                <i class="fas fa-plus"></i> Add to List
+            </div>
+            <div class="group-context-menu-item" id="remove-from-list-menu-item">
+                <i class="fas fa-minus"></i> Remove from List
+            </div>
+            <div class="group-context-menu-item danger" id="delete-group-menu-item">
+                <i class="fas fa-trash"></i> Delete Group
+            </div>
+        </div>`;
+        
+        // Add the context menu to the document
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = contextMenuHtml;
+        document.body.appendChild(tempDiv.firstElementChild);
+        
+        // Add event listeners to the menu items
+        document.getElementById('add-to-list-menu-item').addEventListener('click', () => {
+            const contextMenu = document.getElementById('group-context-menu');
+            const groupId = contextMenu.dataset.groupId;
+            const groupTitle = contextMenu.dataset.groupTitle;
+            
+            // Close the context menu
+            contextMenu.classList.remove('active');
+            
+            // Show the add to list modal
+            showAddToListModal(groupId, groupTitle);
+        });
+        
+        document.getElementById('remove-from-list-menu-item').addEventListener('click', async () => {
+            const contextMenu = document.getElementById('group-context-menu');
+            const groupId = contextMenu.dataset.groupId;
+            const listId = contextMenu.dataset.listId;
+            
+            // Close the context menu
+            contextMenu.classList.remove('active');
+            
+            if (listId === 'all' || listId === 'main') {
+                showToast('Cannot remove from main list', 'error');
+                return;
+            }
+            
+            // Confirm removal
+            if (confirm('Are you sure you want to remove this group from the current list?')) {
+                try {
+                    const result = await api.removeGroupFromList(groupId, listId);
+                    
+                    if (result && result.updated_count > 0) {
+                        showToast('Group removed from list', 'success');
+                        
+                        // Reload saved groups to reflect changes
+                        await loadSavedGroups(state.currentGroupListId);
+                        
+                        // Update group counts
+                        await updateGroupCounts();
+                    }
+                } catch (error) {
+                    console.error('Error removing group from list:', error);
+                    showToast('Error removing group from list', 'error');
+                }
+            }
+        });
+        
+        document.getElementById('delete-group-menu-item').addEventListener('click', async () => {
+            const contextMenu = document.getElementById('group-context-menu');
+            const groupId = contextMenu.dataset.groupId;
+            
+            // Close the context menu
+            contextMenu.classList.remove('active');
+            
+            // Handle delete action
+            await deleteGroup(groupId);
+        });
+        
+        // Event listener to close context menu when clicking elsewhere
+        document.addEventListener('click', (event) => {
+            const contextMenu = document.getElementById('group-context-menu');
+            if (contextMenu && !contextMenu.contains(event.target) && !event.target.classList.contains('group-context-trigger')) {
+                contextMenu.classList.remove('active');
+            }
+        });
+    }
+    
+    // Enhance the renderSavedGroups function to add context menu support
     const renderSavedGroups = () => {
         // Get the table body
         const tableBody = elements.savedGroupsTableBody;
@@ -346,7 +568,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const listId = elements.savedListFilter.value;
         const filteredGroups = listId === 'all' ? 
             state.savedGroups : 
-            state.savedGroups.filter(group => group.list_id === listId);
+            state.savedGroups.filter(group => {
+                // Check if the group has list_ids array
+                if (group.list_ids) {
+                    return group.list_ids.includes(listId);
+                }
+                // Fallback to list_id for backward compatibility
+                return group.list_id === listId;
+            });
         
         if (filteredGroups.length === 0) {
             elements.emptySavedGroups.style.display = 'block';
@@ -366,6 +595,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Format the member count
             const memberCount = formatNumber(group.members || 0);
             
+            // Create a comma-separated list of list names the group belongs to
+            const listNames = (group.list_ids || [group.list_id]).map(lid => {
+                const l = state.groupLists.find(lst => lst.id === lid);
+                return l ? l.name : 'Main Group List';
+            }).join(', ');
+            
             return `
                 <tr data-id="${group.id}">
                     <td class="checkbox-col">
@@ -379,11 +614,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                     <td>@${group.username || ''}</td>
                     <td>${memberCount}</td>
-                    <td>${listName}</td>
+                    <td title="${listNames}">${listName}</td>
                     <td>
                         <div class="action-buttons">
-                            <button class="btn btn-icon btn-text edit-list-btn" data-id="${group.list_id}" title="Edit list">
-                                <i class="fas fa-list"></i>
+                            <button class="btn btn-icon btn-text add-to-list-btn" data-id="${group.id}" data-title="${group.title}" title="Add to list">
+                                <i class="fas fa-plus-circle"></i>
+                            </button>
+                            <button class="btn btn-icon btn-text group-context-trigger" data-id="${group.id}" data-title="${group.title}" data-list-id="${listId}" title="More options">
+                                <i class="fas fa-ellipsis-v"></i>
                             </button>
                             <button class="btn btn-icon btn-danger delete-group-btn" data-id="${group.id}" title="Delete group">
                                 <i class="fas fa-trash"></i>
@@ -407,11 +645,48 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Add event listeners for edit list buttons
-        tableBody.querySelectorAll('.edit-list-btn').forEach(button => {
+        // Add event listeners for add to list buttons
+        tableBody.querySelectorAll('.add-to-list-btn').forEach(button => {
             button.addEventListener('click', () => {
-                const listId = button.dataset.id;
-                handleEditGroupList(listId);
+                const groupId = button.dataset.id;
+                const groupTitle = button.dataset.title;
+                showAddToListModal(groupId, groupTitle);
+            });
+        });
+        
+        // Add event listeners for context menu triggers
+        tableBody.querySelectorAll('.group-context-trigger').forEach(button => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                
+                const groupId = button.dataset.id;
+                const groupTitle = button.dataset.title;
+                const listId = button.dataset.listId;
+                
+                const contextMenu = document.getElementById('group-context-menu');
+                if (contextMenu) {
+                    // Store data in the context menu
+                    contextMenu.dataset.groupId = groupId;
+                    contextMenu.dataset.groupTitle = groupTitle;
+                    contextMenu.dataset.listId = listId;
+                    
+                    // Position the menu next to the button
+                    const rect = button.getBoundingClientRect();
+                    contextMenu.style.top = `${rect.bottom + window.scrollY}px`;
+                    contextMenu.style.left = `${rect.left + window.scrollX}px`;
+                    
+                    // Hide "Remove from List" option if we're viewing all groups
+                    const removeItem = document.getElementById('remove-from-list-menu-item');
+                    if (listId === 'all') {
+                        removeItem.style.display = 'none';
+                    } else {
+                        removeItem.style.display = 'flex';
+                    }
+                    
+                    // Show the menu
+                    contextMenu.classList.add('active');
+                }
             });
         });
     };

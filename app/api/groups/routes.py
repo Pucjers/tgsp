@@ -86,3 +86,30 @@ def move_groups_to_list():
         "message": f"Successfully moved {result['updated_count']} groups",
         "updated_count": result['updated_count']
     })
+
+@groups_bp.route('/move', methods=['POST'])
+def move_groups_to_list():
+    """Move groups between lists"""
+    data = request.json
+    group_ids = data.get('group_ids', [])
+    target_list_id = data.get('target_list_id')
+    action = data.get('action', 'move')  # 'move', 'add', or 'remove'
+    
+    if not group_ids:
+        return jsonify({"error": "No group IDs provided"}), 400
+    
+    if not target_list_id:
+        return jsonify({"error": "Target list ID is required"}), 400
+    
+    result = move_groups(group_ids, target_list_id, action)
+    
+    action_text = "moved"
+    if action == 'add':
+        action_text = "added to list"
+    elif action == 'remove':
+        action_text = "removed from list"
+    
+    return jsonify({
+        "message": f"Successfully {action_text} {result['updated_count']} groups",
+        "updated_count": result['updated_count']
+    })

@@ -316,6 +316,95 @@
                 display: none;
             }
         }
+
+        .list-badge {
+        display: inline-flex;
+        align-items: center;
+        background-color: rgba(62, 142, 208, 0.1);
+        color: var(--primary-color);
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        margin-right: 5px;
+        margin-bottom: 5px;
+    }
+    
+    .list-badges {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: 5px;
+    }
+    
+    .list-badge i {
+        margin-left: 4px;
+        cursor: pointer;
+        font-size: 10px;
+    }
+    
+    .group-context-menu {
+        position: absolute;
+        background-color: var(--bg-white);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-md);
+        z-index: 100;
+        padding: 8px 0;
+        min-width: 180px;
+        display: none;
+    }
+    
+    .group-context-menu.active {
+        display: block;
+    }
+    
+    .group-context-menu-item {
+        padding: 8px 15px;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+    }
+    
+    .group-context-menu-item:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    .group-context-menu-item i {
+        margin-right: 8px;
+        width: 16px;
+        text-align: center;
+    }
+    
+    .group-context-menu-item.danger {
+        color: var(--danger-color);
+    }
+    
+    /* Tooltip styles */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .tooltip .tooltip-text {
+        visibility: hidden;
+        width: 200px;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
     </style>
 </head>
 <body>
@@ -625,6 +714,27 @@
             </div>
         </div>
     </div>
+
+    <div class="modal" id="add-to-list-modal">
+        <div class="modal-header">
+            <h3>Add to List</h3>
+            <button class="btn-close" data-close-modal="add-to-list-modal">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p id="add-to-list-message">Select the list to add this group to:</p>
+            <div class="form-group">
+                <select id="add-to-list-select">
+                    <!-- Lists will be loaded here -->
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-text" data-close-modal="add-to-list-modal">Cancel</button>
+            <button class="btn btn-primary" id="confirm-add-to-list-btn">Add to List</button>
+        </div>
+    </div>
     
     <!-- SVG Assets -->
     <svg style="display: none;">
@@ -632,7 +742,17 @@
             <path d="M12,2 C17.5228,2 22,6.47715 22,12 C22,17.5228 17.5228,22 12,22 C6.47715,22 2,17.5228 2,12 C2,6.47715 6.47715,2 12,2 Z M12,5 C8.13401,5 5,8.13401 5,12 C5,15.866 8.13401,19 12,19 C15.866,19 19,15.866 19,12 C19,8.13401 15.866,5 12,5 Z M14.1213,8.46447 L15.5355,9.87868 L12,13.4142 L8.46447,9.87868 L9.87868,8.46447 L12,10.5858 L14.1213,8.46447 Z" fill="currentColor"/>
         </symbol>
     </svg>
-    
+    <div class="group-context-menu" id="group-context-menu">
+        <div class="group-context-menu-item" id="add-to-list-menu-item">
+            <i class="fas fa-plus"></i> Add to List
+        </div>
+        <div class="group-context-menu-item" id="remove-from-list-menu-item">
+            <i class="fas fa-minus"></i> Remove from List
+        </div>
+        <div class="group-context-menu-item danger" id="delete-group-menu-item">
+            <i class="fas fa-trash"></i> Delete Group
+        </div>
+    </div>
     <script src="/js/parser.js"></script>
     <script src="/js/theme-toggle.js"></script>
 </body>
