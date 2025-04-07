@@ -1375,6 +1375,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     function addManualGroupButton() {
+        // The correct selector would be the div containing buttons in the section header
         const foundGroupsHeader = document.querySelector('.found-groups .section-header div');
         
         if (foundGroupsHeader) {
@@ -1388,6 +1389,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Add click event
             addButton.addEventListener('click', showAddGroupManuallyModal);
+        } else {
+            console.error("Could not find the found groups header element");
         }
     }
     
@@ -1395,18 +1398,29 @@ document.addEventListener('DOMContentLoaded', function() {
     function showAddGroupManuallyModal() {
         // Reset the form
         document.getElementById('add-group-manually-form').reset();
-        
+    
         // Clear any previous error messages
         document.querySelectorAll('.error-message').forEach(element => {
             element.classList.remove('active');
             element.textContent = '';
         });
-        
+    
         // Update the list dropdown
         updateManualGroupListDropdown();
-        
+    
         // Show the modal
         showModal('add-group-manually-modal');
+        
+        // Make sure we have the event listener on the save button
+        const saveButton = document.getElementById('save-manual-group-btn');
+        if (saveButton) {
+            // Remove any existing event listeners by cloning the button
+            const newSaveButton = saveButton.cloneNode(true);
+            saveButton.parentNode.replaceChild(newSaveButton, saveButton);
+            
+            // Add the event listener to the new button
+            newSaveButton.addEventListener('click', handleSaveManualGroup);
+        }
     }
     
     // Update the list dropdown in the manual group form
@@ -1466,7 +1480,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Handle saving the manually added group
-    async function handleSaveManualGroup() {
+    function handleSaveManualGroup() {
+        console.log("Save manual group button clicked");
+        
         // Validate the form
         if (!validateManualGroupForm()) {
             return;
@@ -1500,40 +1516,42 @@ document.addEventListener('DOMContentLoaded', function() {
         saveButton.disabled = true;
         saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
         
-        try {
-            // Save the group via API
-            const savedGroups = await api.saveGroups([newGroup], formData.list_id);
-            
-            if (savedGroups && savedGroups.length > 0) {
-                // Update state and UI
-                state.savedGroups = [...state.savedGroups, ...savedGroups];
-                renderSavedGroups();
-                
-                // Update group counts
-                await updateGroupCounts();
-                
-                // Show success message
-                showToast('Group added successfully', 'success');
-                
-                // Close the modal
-                hideModal('add-group-manually-modal');
-            } else {
+        // Save the group via API
+        api.saveGroups([newGroup], formData.list_id)
+            .then(savedGroups => {
+                if (savedGroups && savedGroups.length > 0) {
+                    // Update state and UI
+                    state.savedGroups = [...state.savedGroups, ...savedGroups];
+                    renderSavedGroups();
+                    
+                    // Update group counts
+                    updateGroupCounts();
+                    
+                    // Show success message
+                    showToast('Group added successfully', 'success');
+                    
+                    // Close the modal
+                    hideModal('add-group-manually-modal');
+                } else {
+                    showToast('Error adding group', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error adding group:', error);
                 showToast('Error adding group', 'error');
-            }
-        } catch (error) {
-            console.error('Error adding group:', error);
-            showToast('Error adding group', 'error');
-        } finally {
-            // Reset button state
-            saveButton.disabled = false;
-            saveButton.innerHTML = originalButtonText;
-        }
+            })
+            .finally(() => {
+                // Reset button state
+                saveButton.disabled = false;
+                saveButton.innerHTML = originalButtonText;
+            });
     }
     
     // Helper function to generate UUID for browsers that don't support crypto.randomUUID
     function generateUUID() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
             return v.toString(16);
         });
     }
@@ -1543,11 +1561,22 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add the button to the UI
         addManualGroupButton();
         
-        // Add event listener to the save button
+        // Initialize the form dropdown
+        updateManualGroupListDropdown();
+        
+        // Explicitly add event listener to the save button
         const saveButton = document.getElementById('save-manual-group-btn');
         if (saveButton) {
             saveButton.addEventListener('click', handleSaveManualGroup);
+        } else {
+            console.error("Save manual group button not found");
         }
+        
+        // Also add event listeners to the close buttons
+        const closeButtons = document.querySelectorAll('[data-close-modal="add-group-manually-modal"]');
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', () => hideModal('add-group-manually-modal'));
+        });
     }
     
     // Call this function after the DOM is loaded and the main parser.js is initialized
@@ -1636,7 +1665,122 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     };
-
+    function fixAddGroupManuallyModal() {
+        // Check if the modal exists
+        let modal = document.getElementById('add-group-manually-modal');
+        
+        // If the modal exists but is not inside the modal container, this is likely the issue
+        if (modal && modal.parentElement.id !== 'modal-container') {
+          console.log("Found modal outside of container, moving it to modal container");
+          
+          // Get the modal container
+          const modalContainer = document.getElementById('modal-container');
+          
+          // Move the modal inside the container
+          if (modalContainer) {
+            // Remove it from current location
+            modal.parentElement.removeChild(modal);
+            
+            // Add it to the modal container
+            modalContainer.appendChild(modal);
+          }
+        } 
+        // If the modal doesn't exist at all, we need to create it
+        else if (!modal) {
+          console.log("Modal doesn't exist, creating it");
+          
+          const modalContainer = document.getElementById('modal-container');
+          if (!modalContainer) return;
+          
+          // Create the modal HTML
+          const modalHTML = `
+            <div class="modal" id="add-group-manually-modal">
+                <div class="modal-header">
+                    <h3>Add Group Manually</h3>
+                    <button class="btn-close" data-close-modal="add-group-manually-modal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="add-group-manually-form">
+                        <div class="form-group">
+                            <label for="group-title">Group Title <span class="required">*</span></label>
+                            <input type="text" id="group-title" name="title" required>
+                            <div class="error-message" id="group-title-error"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="group-username">Username</label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">@</span>
+                                <input type="text" id="group-username" name="username" placeholder="username">
+                            </div>
+                            <div class="error-message" id="group-username-error"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="group-members">Member Count</label>
+                            <input type="number" id="group-members" name="members" min="0" value="0">
+                            <div class="error-message" id="group-members-error"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="group-description">Description</label>
+                            <textarea id="group-description" name="description" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="group-language">Language</label>
+                            <select id="group-language" name="language">
+                                <option value="en">English</option>
+                                <option value="ru">Russian</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="manual-group-list-select">Save to List</label>
+                            <select id="manual-group-list-select" name="list_id">
+                                <!-- Lists will be loaded here -->
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-text" data-close-modal="add-group-manually-modal">Cancel</button>
+                    <button class="btn btn-primary" id="save-manual-group-btn">Add Group</button>
+                </div>
+            </div>
+          `;
+          
+          // Add the modal to the container
+          modalContainer.insertAdjacentHTML('beforeend', modalHTML);
+          
+          // Add event listeners for the close button
+          const closeButton = document.querySelector('[data-close-modal="add-group-manually-modal"]');
+          if (closeButton) {
+            closeButton.addEventListener('click', () => {
+              hideModal('add-group-manually-modal');
+            });
+          }
+          
+          // Add event listener for the save button
+          const saveButton = document.getElementById('save-manual-group-btn');
+          if (saveButton) {
+            saveButton.addEventListener('click', handleSaveManualGroup);
+          }
+        }
+      };
+      function initManualGroupAddition() {
+        // Fix the modal first to ensure it exists and is in the correct container
+        fixAddGroupManuallyModal();
+        
+        // Add the button to the UI
+        addManualGroupButton();
+      };      
     // Initialization
     const init = async () => {
         // Create the add to list modal
@@ -1653,6 +1797,9 @@ document.addEventListener('DOMContentLoaded', function() {
         renderKeywordChips();
         renderFoundGroups();
         
+        // Initialize manual group addition
+        initManualGroupAddition();
+        fixAddGroupManuallyModal();
         // Attach event listeners
         attachEventListeners();
     };

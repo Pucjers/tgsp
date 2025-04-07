@@ -713,88 +713,90 @@
                 <button class="btn btn-danger" id="confirm-delete-groups-btn">Delete</button>
             </div>
         </div>
-    </div>
-
-    <div class="modal" id="add-to-list-modal">
-        <div class="modal-header">
-            <h3>Add to List</h3>
-            <button class="btn-close" data-close-modal="add-to-list-modal">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <p id="add-to-list-message">Select the list to add this group to:</p>
-            <div class="form-group">
-                <select id="add-to-list-select">
-                    <!-- Lists will be loaded here -->
-                </select>
+        <div class="modal" id="add-group-manually-modal">
+            <div class="modal-header">
+                <h3>Add Group Manually</h3>
+                <button class="btn-close" data-close-modal="add-group-manually-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-group-manually-form">
+                    <div class="form-group">
+                        <label for="group-title">Group Title <span class="required">*</span></label>
+                        <input type="text" id="group-title" name="title" required>
+                        <div class="error-message" id="group-title-error"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="group-username">Username</label>
+                        <div class="input-with-prefix">
+                            <span class="input-prefix">@</span>
+                            <input type="text" id="group-username" name="username" placeholder="username">
+                        </div>
+                        <div class="error-message" id="group-username-error"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="group-members">Member Count</label>
+                        <input type="number" id="group-members" name="members" min="0" value="0">
+                        <div class="error-message" id="group-members-error"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="group-description">Description</label>
+                        <textarea id="group-description" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="group-language">Language</label>
+                        <select id="group-language" name="language">
+                            <option value="en">English</option>
+                            <option value="ru">Russian</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="manual-group-list-select">Save to List</label>
+                        <select id="manual-group-list-select" name="list_id">
+                            <!-- Lists will be loaded here -->
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-group-manually-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-manual-group-btn">Add Group</button>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-text" data-close-modal="add-to-list-modal">Cancel</button>
-            <button class="btn btn-primary" id="confirm-add-to-list-btn">Add to List</button>
-        </div>
-    </div>
-    <div class="modal" id="add-group-manually-modal">
-        <div class="modal-header">
-            <h3>Add Group Manually</h3>
-            <button class="btn-close" data-close-modal="add-group-manually-modal">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <form id="add-group-manually-form">
+        <div class="modal" id="add-to-list-modal">
+            <div class="modal-header">
+                <h3>Add to List</h3>
+                <button class="btn-close" data-close-modal="add-to-list-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="add-to-list-message">Select the list to add this group to:</p>
                 <div class="form-group">
-                    <label for="group-title">Group Title <span class="required">*</span></label>
-                    <input type="text" id="group-title" name="title" required>
-                    <div class="error-message" id="group-title-error"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="group-username">Username</label>
-                    <div class="input-with-prefix">
-                        <span class="input-prefix">@</span>
-                        <input type="text" id="group-username" name="username" placeholder="username">
-                    </div>
-                    <div class="error-message" id="group-username-error"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="group-members">Member Count</label>
-                    <input type="number" id="group-members" name="members" min="0" value="0">
-                    <div class="error-message" id="group-members-error"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="group-description">Description</label>
-                    <textarea id="group-description" name="description" rows="3"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label for="group-language">Language</label>
-                    <select id="group-language" name="language">
-                        <option value="en">English</option>
-                        <option value="ru">Russian</option>
-                        <option value="es">Spanish</option>
-                        <option value="fr">French</option>
-                        <option value="de">German</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="manual-group-list-select">Save to List</label>
-                    <select id="manual-group-list-select" name="list_id">
+                    <select id="add-to-list-select">
                         <!-- Lists will be loaded here -->
                     </select>
                 </div>
-            </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-to-list-modal">Cancel</button>
+                <button class="btn btn-primary" id="confirm-add-to-list-btn">Add to List</button>
+            </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-text" data-close-modal="add-group-manually-modal">Cancel</button>
-            <button class="btn btn-primary" id="save-manual-group-btn">Add Group</button>
-        </div>
+        
     </div>
+
+    
     
     <!-- SVG Assets -->
     <svg style="display: none;">
@@ -815,5 +817,35 @@
     </div>
     <script src="/js/parser.js"></script>
     <script src="/js/theme-toggle.js"></script>
+    <script>
+        // This script will run after the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+          // Check and fix the Add Group Manually modal
+          const modalContainer = document.getElementById('modal-container');
+          let modal = document.getElementById('add-group-manually-modal');
+          
+          // If the modal exists but is outside the container, move it in
+          if (modal && modal.parentElement !== modalContainer) {
+            console.log("Moving modal into container");
+            modal.parentElement.removeChild(modal);
+            modalContainer.appendChild(modal);
+          }
+          
+          // Make sure the button properly shows the modal
+          const addGroupBtn = document.getElementById('add-group-manually-btn');
+          if (addGroupBtn) {
+            addGroupBtn.addEventListener('click', function() {
+              const modal = document.getElementById('add-group-manually-modal');
+              if (modal) {
+                modalContainer.classList.add('active');
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+              } else {
+                console.error("Modal not found!");
+              }
+            });
+          }
+        });
+      </script>
 </body>
 </html>
