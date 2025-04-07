@@ -1374,7 +1374,192 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading group lists:', error);
         }
     };
-
+    function addManualGroupButton() {
+        const foundGroupsHeader = document.querySelector('.found-groups .section-header div');
+        
+        if (foundGroupsHeader) {
+            const addButton = document.createElement('button');
+            addButton.id = 'add-group-manually-btn';
+            addButton.className = 'btn btn-text add-group-manually-btn';
+            addButton.innerHTML = '<i class="fas fa-plus"></i> Add Group Manually';
+            
+            // Insert before the "Save All" button
+            foundGroupsHeader.insertBefore(addButton, foundGroupsHeader.firstChild);
+            
+            // Add click event
+            addButton.addEventListener('click', showAddGroupManuallyModal);
+        }
+    }
+    
+    // Show the add group manually modal
+    function showAddGroupManuallyModal() {
+        // Reset the form
+        document.getElementById('add-group-manually-form').reset();
+        
+        // Clear any previous error messages
+        document.querySelectorAll('.error-message').forEach(element => {
+            element.classList.remove('active');
+            element.textContent = '';
+        });
+        
+        // Update the list dropdown
+        updateManualGroupListDropdown();
+        
+        // Show the modal
+        showModal('add-group-manually-modal');
+    }
+    
+    // Update the list dropdown in the manual group form
+    function updateManualGroupListDropdown() {
+        const listSelect = document.getElementById('manual-group-list-select');
+        
+        if (listSelect && state.groupLists) {
+            listSelect.innerHTML = state.groupLists.map(list => 
+                `<option value="${list.id}">${list.name}</option>`
+            ).join('');
+        }
+    }
+    
+    // Validate the manual group form
+    function validateManualGroupForm() {
+        let isValid = true;
+        
+        // Validate title (required)
+        const titleInput = document.getElementById('group-title');
+        const titleError = document.getElementById('group-title-error');
+        
+        if (!titleInput.value.trim()) {
+            titleError.textContent = 'Group title is required';
+            titleError.classList.add('active');
+            isValid = false;
+        } else {
+            titleError.classList.remove('active');
+        }
+        
+        // Validate username (optional but must be valid if provided)
+        const usernameInput = document.getElementById('group-username');
+        const usernameError = document.getElementById('group-username-error');
+        const usernameValue = usernameInput.value.trim();
+        
+        if (usernameValue && !/^[a-zA-Z0-9_]{5,32}$/.test(usernameValue)) {
+            usernameError.textContent = 'Username must be 5-32 characters and only contain letters, numbers and underscores';
+            usernameError.classList.add('active');
+            isValid = false;
+        } else {
+            usernameError.classList.remove('active');
+        }
+        
+        // Validate member count (must be a non-negative number)
+        const membersInput = document.getElementById('group-members');
+        const membersError = document.getElementById('group-members-error');
+        const membersValue = parseInt(membersInput.value);
+        
+        if (isNaN(membersValue) || membersValue < 0) {
+            membersError.textContent = 'Member count must be a non-negative number';
+            membersError.classList.add('active');
+            isValid = false;
+        } else {
+            membersError.classList.remove('active');
+        }
+        
+        return isValid;
+    }
+    
+    // Handle saving the manually added group
+    async function handleSaveManualGroup() {
+        // Validate the form
+        if (!validateManualGroupForm()) {
+            return;
+        }
+        
+        // Get form values
+        const formData = {
+            title: document.getElementById('group-title').value.trim(),
+            username: document.getElementById('group-username').value.trim(),
+            members: parseInt(document.getElementById('group-members').value) || 0,
+            description: document.getElementById('group-description').value.trim(),
+            language: document.getElementById('group-language').value,
+            list_id: document.getElementById('manual-group-list-select').value
+        };
+        
+        // Create a group object
+        const newGroup = {
+            id: crypto.randomUUID ? crypto.randomUUID() : generateUUID(), // Fallback for older browsers
+            telegram_id: 0, // No actual Telegram ID for manually added groups
+            title: formData.title,
+            username: formData.username,
+            members: formData.members,
+            online: 0, // No online data for manually added groups
+            language: formData.language,
+            description: formData.description
+        };
+        
+        // Show loading state
+        const saveButton = document.getElementById('save-manual-group-btn');
+        const originalButtonText = saveButton.innerHTML;
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+        
+        try {
+            // Save the group via API
+            const savedGroups = await api.saveGroups([newGroup], formData.list_id);
+            
+            if (savedGroups && savedGroups.length > 0) {
+                // Update state and UI
+                state.savedGroups = [...state.savedGroups, ...savedGroups];
+                renderSavedGroups();
+                
+                // Update group counts
+                await updateGroupCounts();
+                
+                // Show success message
+                showToast('Group added successfully', 'success');
+                
+                // Close the modal
+                hideModal('add-group-manually-modal');
+            } else {
+                showToast('Error adding group', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding group:', error);
+            showToast('Error adding group', 'error');
+        } finally {
+            // Reset button state
+            saveButton.disabled = false;
+            saveButton.innerHTML = originalButtonText;
+        }
+    }
+    
+    // Helper function to generate UUID for browsers that don't support crypto.randomUUID
+    function generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+    
+    // Initialize the manual group addition functionality
+    function initManualGroupAddition() {
+        // Add the button to the UI
+        addManualGroupButton();
+        
+        // Add event listener to the save button
+        const saveButton = document.getElementById('save-manual-group-btn');
+        if (saveButton) {
+            saveButton.addEventListener('click', handleSaveManualGroup);
+        }
+    }
+    
+    // Call this function after the DOM is loaded and the main parser.js is initialized
+    document.addEventListener('DOMContentLoaded', function() {
+        // Wait for the main script to initialize
+        const checkInterval = setInterval(() => {
+            if (window.state && window.api) {
+                clearInterval(checkInterval);
+                initManualGroupAddition();
+            }
+        }, 100);
+    });
     // Event Listeners Attachment
     const attachEventListeners = () => {
         // Keyword input
@@ -1454,6 +1639,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialization
     const init = async () => {
+        // Create the add to list modal
+        createAddToListModal();
+        
+        // Create the group context menu
+        createGroupContextMenu();
+        
         // Load data
         await loadGroupLists();
         await loadSavedGroups('all');

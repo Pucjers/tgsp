@@ -1,3 +1,4 @@
+# Updated app/api/groups/routes.py file
 from flask import request, jsonify, current_app
 from app.api.groups import groups_bp
 from app.api.groups.services import (
@@ -66,26 +67,6 @@ def search_groups():
     except Exception as e:
         current_app.logger.error(f"Error during group search: {str(e)}")
         return jsonify({"error": "An error occurred during search"}), 500
-    
-@groups_bp.route('/move', methods=['POST'])
-def move_groups_to_list():
-    """Move groups between lists"""
-    data = request.json
-    group_ids = data.get('group_ids', [])
-    target_list_id = data.get('target_list_id')
-    
-    if not group_ids:
-        return jsonify({"error": "No group IDs provided"}), 400
-    
-    if not target_list_id:
-        return jsonify({"error": "Target list ID is required"}), 400
-    
-    result = move_groups(group_ids, target_list_id)
-    
-    return jsonify({
-        "message": f"Successfully moved {result['updated_count']} groups",
-        "updated_count": result['updated_count']
-    })
 
 @groups_bp.route('/move', methods=['POST'])
 def move_groups_to_list():
