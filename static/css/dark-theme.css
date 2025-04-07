@@ -187,3 +187,104 @@
 [data-theme="dark"] .dark-icon {
     display: none;
 }
+
+[data-theme="dark"] .groups-table th {
+    background-color: var(--table-header-bg);
+    color: var(--text-light);
+}
+
+/* Fix for table borders in dark mode */
+[data-theme="dark"] .groups-table td,
+[data-theme="dark"] .groups-table th {
+    border-color: var(--border-color);
+}
+
+/* Fix for group table rows hover state in dark mode */
+[data-theme="dark"] .groups-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Fix for checkbox appearance in dark mode */
+[data-theme="dark"] input[type="checkbox"] {
+    background-color: #3a3b3c;
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] input[type="checkbox"]:checked {
+    background-color: var(--primary-color);
+}
+
+/* Fix for form selects in dark mode */
+[data-theme="dark"] select {
+    background-color: #3a3b3c;
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+/* Fix for empty results message in dark mode */
+[data-theme="dark"] .empty-results {
+    color: var(--text-light);
+}
+
+/* Fix for group counts in dark mode */
+[data-theme="dark"] .group-count {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Fix for table container in dark mode */
+[data-theme="dark"] .table-container {
+    background-color: transparent;
+}
+
+/* Fix for keyword chips in dark mode */
+[data-theme="dark"] .keyword-chip {
+    background-color: rgba(62, 142, 208, 0.2);
+    color: #78bdff;
+}
+
+/* Fix for action buttons in dark mode */
+[data-theme="dark"] .action-buttons .btn-icon {
+    color: var(--text-light);
+}
+
+[data-theme="dark"] .action-buttons .btn-icon:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .action-buttons .btn-danger {
+    color: var(--danger-color);
+}
+
+[data-theme="dark"] .action-buttons .btn-danger:hover {
+    background-color: rgba(241, 70, 104, 0.2);
+}
+
+/* Fix for form inputs in dark mode */
+[data-theme="dark"] input[type="text"] {
+    background-color: #3a3b3c;
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+/* Fix selection actions in dark mode */
+[data-theme="dark"] .selection-actions {
+    color: var(--text-light);
+}
+
+/* Fix section headers in dark mode */
+[data-theme="dark"] .section-header {
+    background-color: var(--table-header-bg);
+    border-color: var(--border-color);
+}
+
+/* Fix the modals in dark mode */
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+    border-color: var(--border-color);
+}
+
+/* Fix the warning icon in modals */
+[data-theme="dark"] .warning-icon i {
+    color: var(--danger-color);
+}

@@ -202,3 +202,35 @@ def search_telegram_groups(keywords: List[str], language: str = 'all') -> List[D
         except RuntimeError:
             logger.error("Telegram parser not available")
         return []
+    
+def move_groups(group_ids: List[str], target_list_id: str) -> Dict[str, Any]:
+    """
+    Move groups to another list
+    
+    Args:
+        group_ids: List of group IDs to move
+        target_list_id: Target list ID
+        
+    Returns:
+        Dictionary with the result of the operation
+    """
+    # Get all groups
+    groups = get_all_groups()
+    
+    # Count of updated groups
+    updated_count = 0
+    
+    # Update the list_id for each group in the list
+    for group in groups:
+        if group['id'] in group_ids:
+            group['list_id'] = target_list_id
+            updated_count += 1
+    
+    # Save the updated groups
+    if updated_count > 0:
+        save_groups(groups)
+    
+    return {
+        "success": True,
+        "updated_count": updated_count
+    }

@@ -180,9 +180,140 @@
             opacity: 0.4;
         }
         
+        /* Sidebar divider */
+        .sidebar-divider {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 10px 20px;
+            opacity: 0.5;
+        }
+
+        /* Group count badge */
+        .group-count {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            flex: 0 !important;
+        }
+
+        /* Groups table styles */
+        .groups-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .groups-table th, 
+        .groups-table td {
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .groups-table th {
+            font-weight: 500;
+            color: var(--text-light);
+            background-color: #f9fafc;
+        }
+
+        .groups-table tbody tr {
+            transition: var(--transition);
+        }
+
+        .groups-table tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.01);
+        }
+
+        .groups-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .group-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .group-name {
+            font-weight: 500;
+        }
+
+        .group-details {
+            color: var(--text-light);
+            font-size: 13px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .table-container {
+            flex: 1;
+            overflow: auto;
+        }
+
+        /* Make the saved groups section scrollable */
+        .saved-groups {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Group context menu */
+        .group-context-menu {
+            position: absolute;
+            background-color: var(--bg-white);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-md);
+            z-index: 100;
+            padding: 8px 0;
+            min-width: 180px;
+            display: none;
+        }
+
+        .group-context-menu.active {
+            display: block;
+        }
+
+        .group-context-menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+        }
+
+        .group-context-menu-item:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .group-context-menu-item i {
+            margin-right: 8px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .group-context-menu-item.danger {
+            color: var(--danger-color);
+        }
+
+        /* Media queries */
         @media (max-width: 992px) {
             .results-section {
                 flex-direction: column;
+            }
+            
+            .groups-table th:nth-child(4), /* Members */
+            .groups-table td:nth-child(4) {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .groups-table th:nth-child(3), /* Username */
+            .groups-table td:nth-child(3) {
+                display: none;
             }
         }
     </style>
@@ -208,9 +339,30 @@
                         <span>Group Parser</span>
                     </li>
                 </ul>
+                
+                <div class="sidebar-divider"></div>
+                
+                <ul id="group-lists">
+                    <li class="active" data-list-id="all">
+                        <i class="fas fa-layer-group"></i>
+                        <span>All Groups</span>
+                        <span class="group-count">0</span>
+                    </li>
+                    <!-- Group lists will be loaded here -->
+                </ul>
+                
+                <div class="sidebar-actions">
+                    <button id="add-group-list-btn" class="btn btn-text">
+                        <i class="fas fa-plus"></i> Add List
+                    </button>
+                </div>
             </nav>
             
             <div class="sidebar-footer">
+                <button id="theme-toggle-btn" class="theme-toggle btn btn-icon" title="Toggle dark mode">
+                    <i class="fas fa-sun light-icon"></i>
+                    <i class="fas fa-moon dark-icon"></i>
+                </button>
                 <button id="settings-btn" class="btn btn-icon">
                     <i class="fas fa-cog"></i>
                 </button>
@@ -312,25 +464,166 @@
                         <div class="saved-groups">
                             <div class="section-header">
                                 <h3>Saved Groups</h3>
-                                <select id="saved-list-filter" class="group-list-selector">
-                                    <!-- Lists will be loaded here -->
-                                </select>
+                                <div class="header-actions">
+                                    <select id="saved-list-filter" class="group-list-selector">
+                                        <!-- Lists will be loaded here -->
+                                    </select>
+                                </div>
                             </div>
                             
-                            <ul class="groups-list" id="saved-groups-list">
-                                <!-- Empty state -->
-                                <div class="empty-results" id="empty-saved-groups">
-                                    <i class="fas fa-bookmark"></i>
-                                    <p>No saved groups yet</p>
+                            <div class="table-container">
+                                <table class="groups-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="checkbox-col">
+                                                <input type="checkbox" id="select-all-groups-checkbox">
+                                            </th>
+                                            <th>Group</th>
+                                            <th>Username</th>
+                                            <th>Members</th>
+                                            <th>List</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="saved-groups-table-body">
+                                        <!-- Groups will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="empty-results" id="empty-saved-groups" style="display: none;">
+                                <i class="fas fa-bookmark"></i>
+                                <p>No saved groups yet</p>
+                            </div>
+                            
+                            <div class="table-footer">
+                                <div class="selection-actions" id="group-selection-actions" style="display: none;">
+                                    <span id="selected-groups-count">0 selected</span>
+                                    <div class="actions">
+                                        <button id="move-selected-groups-btn" class="btn btn-text" disabled>
+                                            <i class="fas fa-exchange-alt"></i> Move to
+                                        </button>
+                                        <button id="delete-selected-groups-btn" class="btn btn-text btn-danger" disabled>
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
                                 </div>
-                                
-                                <!-- Groups will be added here -->
-                            </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
         </main>
+    </div>
+    
+    <!-- Modal Container -->
+    <div class="modal-container" id="modal-container">
+        <!-- Add Group List Modal -->
+        <div class="modal" id="add-group-list-modal">
+            <div class="modal-header">
+                <h3>Add Group List</h3>
+                <button class="btn-close" data-close-modal="add-group-list-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-group-list-form">
+                    <div class="form-group">
+                        <label for="group-list-name">List Name</label>
+                        <input type="text" id="group-list-name" name="name" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-group-list-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-group-list-btn">Create List</button>
+            </div>
+        </div>
+
+        <!-- Edit Group List Modal -->
+        <div class="modal" id="edit-group-list-modal">
+            <div class="modal-header">
+                <h3>Edit Group List</h3>
+                <button class="btn-close" data-close-modal="edit-group-list-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-group-list-form">
+                    <div class="form-group">
+                        <label for="edit-group-list-name">List Name</label>
+                        <input type="text" id="edit-group-list-name" name="name" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="edit-group-list-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-edit-group-list-btn">Save Changes</button>
+            </div>
+        </div>
+
+        <!-- Delete Group List Modal -->
+        <div class="modal" id="delete-group-list-modal">
+            <div class="modal-header">
+                <h3>Delete Group List</h3>
+                <button class="btn-close" data-close-modal="delete-group-list-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p id="delete-group-list-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="delete-group-list-modal">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-group-list-btn">Delete</button>
+            </div>
+        </div>
+
+        <!-- Move Groups Modal -->
+        <div class="modal" id="move-groups-modal">
+            <div class="modal-header">
+                <h3>Move Groups</h3>
+                <button class="btn-close" data-close-modal="move-groups-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="move-groups-message"></p>
+                <div class="form-group">
+                    <label for="move-groups-list">Target List</label>
+                    <select id="move-groups-list" name="target_list_id">
+                        <!-- Lists will be loaded here -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="move-groups-modal">Cancel</button>
+                <button class="btn btn-primary" id="confirm-move-groups-btn">Move Groups</button>
+            </div>
+        </div>
+
+        <!-- Delete Groups Modal -->
+        <div class="modal" id="delete-groups-modal">
+            <div class="modal-header">
+                <h3>Delete Groups</h3>
+                <button class="btn-close" data-close-modal="delete-groups-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p id="delete-groups-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="delete-groups-modal">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-groups-btn">Delete</button>
+            </div>
+        </div>
     </div>
     
     <!-- SVG Assets -->
