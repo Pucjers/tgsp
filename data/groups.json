@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "id": "c77a435d-2615-4f3d-82fd-dda8132ae71f",
+    "telegram_id": 0,
+    "title": "yehor",
+    "username": "raven1o",
+    "members": 1,
+    "online": 0,
+    "language": "en",
+    "description": "",
+    "list_id": "main",
+    "list_ids": [
+      "main"
+    ]
+  },
+  {
+    "id": "2b45866c-0737-49d9-8d2f-7a4a2570e51e",
+    "telegram_id": 0,
+    "title": "ya",
+    "username": "ibutryi",
+    "members": 0,
+    "online": 0,
+    "language": "en",
+    "description": "",
+    "list_id": "main",
+    "list_ids": [
+      "main"
+    ]
+  }
+]

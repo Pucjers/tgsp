@@ -139,14 +139,31 @@ def check():
 
 @accounts_bp.route('/upload-avatar', methods=['POST'])
 def upload_avatar():
-    # Check if the post request has the file part
-    if 'avatar' not in request.files:
-        return jsonify({"error": "No file part"}), 400
+    # Log the request details
+    current_app.logger.info("Upload avatar endpoint called")
+    current_app.logger.info(f"Request files: {list(request.files.keys())}")
     
-    file = request.files['avatar']
+    # Accept either 'avatar' or 'image' field names for flexibility
+    file = None
+    field_name = None
+    
+    for field in ['avatar', 'image']:
+        if field in request.files:
+            file = request.files[field]
+            field_name = field
+            break
+    
+    # Check if we found a file
+    if not file:
+        available_fields = ", ".join(request.files.keys()) if request.files else "none"
+        current_app.logger.error(f"No valid file field found. Available fields: {available_fields}")
+        return jsonify({"error": f"No valid file field. Expected 'avatar' or 'image', got: {available_fields}"}), 400
+    
+    current_app.logger.info(f"Found file in '{field_name}' field: {file.filename}, type: {file.content_type}")
     
     # If user does not select file, browser also submit an empty part without filename
     if file.filename == '':
+        current_app.logger.error("Empty filename in uploaded file")
         return jsonify({"error": "No selected file"}), 400
     
     if file and allowed_file(file.filename):
@@ -167,13 +184,22 @@ def upload_avatar():
             # Log the full file path for debugging
             current_app.logger.info(f"File saved to: {file_path}")
             
+            # Check if file was actually saved
+            if os.path.exists(file_path):
+                current_app.logger.info(f"File exists at {file_path}, size: {os.path.getsize(file_path)} bytes")
+            else:
+                current_app.logger.error(f"File does not exist at {file_path} after saving")
+                return jsonify({"error": "Failed to save file: file not found after save"}), 500
+                
             # Return path to uploaded file
             return jsonify({"url": f"/uploads/{filename}"})
         except Exception as e:
-            current_app.logger.error(f"Error saving file: {str(e)}")
+            current_app.logger.error(f"Error saving file: {str(e)}", exc_info=True)
             return jsonify({"error": f"Failed to save file: {str(e)}"}), 500
     
-    return jsonify({"error": "File type not allowed"}), 400
+    current_app.logger.error(f"File type not allowed: {file.filename}")
+    allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
+    return jsonify({"error": f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"}), 400
 
 
 @accounts_bp.route('/import-tdata-zip', methods=['POST'])
@@ -199,3 +225,4 @@ def import_tdata_zip_endpoint():
         return jsonify({"error": result["error"]}), 400
     
     return jsonify(result)
+

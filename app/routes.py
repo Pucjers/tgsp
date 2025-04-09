@@ -21,6 +21,13 @@ def group_parser():
     """Serve the group parser page"""
     return send_from_directory(current_app.template_folder, 'group_parser.html')
 
+
+@main_bp.route('/broadcaster.html')
+def broadcaster():
+    """Serve the broadcaster page"""
+    return send_from_directory(current_app.template_folder, 'broadcaster.html')
+
+
 @main_bp.route('/uploads/<path:filename>')
 def serve_upload(filename):
     print(f"Upload route triggered for: {filename}")

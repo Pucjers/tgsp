@@ -1,14 +1,11 @@
-from __future__ import annotations
+# utils.py (OpenTele)
 
-from . import debug
+from __future__ import annotations
 
 from typing import Coroutine, Tuple, Type, Callable, TypeVar, Optional, List, Any, Dict
 from types import FunctionType
 
 import abc
-
-APP_VERSION = 3004000
-TDF_MAGIC = b"TDF$"
 
 _T = TypeVar("_T")
 _TCLS = TypeVar("_TCLS", bound=type)
@@ -22,7 +19,7 @@ class BaseMetaClass(abc.ABCMeta):  # pragma: no cover
     ) -> _T:
 
         # Hook all subclass methods
-        if debug.IS_DEBUG_MODE:  # pragma: no cover
+        if False:  # debug.IS_DEBUG_MODE, замените на False для упрощения
             ignore_list = [
                 "__new__",
                 "__del__",
@@ -39,8 +36,8 @@ class BaseMetaClass(abc.ABCMeta):  # pragma: no cover
                     and callable(val)
                     and not isinstance(val, type)
                 ):
-                    newVal = debug.DebugMethod(val)
-                    attrs[attr] = newVal
+                    # newVal = debug.DebugMethod(val)
+                    attrs[attr] = val  # Оставляем без изменений для упрощения
 
         result = super().__new__(cls, clsName, bases, attrs)
 
@@ -53,7 +50,7 @@ class BaseObject(object, metaclass=BaseMetaClass):
 
 class override(object):  # nocov
     """
-    To use inside a class decorated with @extend_class\n
+    To use inside a class decorated with @extend_class
     Any attributes decorated with @override will be replaced
     """
 
@@ -61,7 +58,7 @@ class override(object):  # nocov
 
         # check if decorated_cls really is a function
         if not isinstance(decorated_func, FunctionType):
-            raise BaseException(
+            raise TypeError(
                 "@override decorator is only for functions, not classes"
             )
 
@@ -77,15 +74,25 @@ class override(object):  # nocov
 
 class extend_class(object):  # nocov
     """
-    Extend a class, all attributes will be added to its parents\n
+    Extend a class, all attributes will be added to its parents
     This won't override attributes that are already existed, please refer to @override or @extend_override_class to do this
     """
+
+    # Добавляем список специальных атрибутов для игнорирования
+    SPECIAL_ATTRIBUTES = [
+        "__firstlineno__",
+        "__module__",
+        "__dict__",
+        "__weakref__",
+        "__doc__",
+        "__annotations__",  # Добавьте другие специальные атрибуты при необходимости
+    ]
 
     def __new__(cls, decorated_cls: _TCLS, isOverride: bool = False) -> _TCLS:
 
         # check if decorated_cls really is a class (type)
-        if not isinstance(cls, type):
-            raise BaseException(
+        if not isinstance(decorated_cls, type):
+            raise TypeError(
                 "@extend_class decorator is only for classes, not functions"
             )
 
@@ -105,10 +112,14 @@ class extend_class(object):  # nocov
 
             for attributeName, attributeValue in newAttributes.items():
 
+                # Игнорируем специальные атрибуты
+                if attributeName.startswith('__') and attributeName.endswith('__'):
+                    continue
+
                 # check if class base already has this attribute
                 result = extend_class.getattr(base, attributeName)
 
-                if result != None:
+                if result is not None:
                     if id(result["value"]) == id(attributeValue):
                         crossDelete[attributeName] = attributeValue
                     else:
@@ -118,16 +129,20 @@ class extend_class(object):  # nocov
                             print(
                                 f"[{attributeName}] {id(result['value'])} - {id(attributeValue)}"
                             )
-                            raise BaseException("err")
+                            raise TypeError("Attribute conflict detected. Use @override to override existing attributes.")
 
             [newAttributes.pop(cross) for cross in crossDelete]
 
         for attributeName, attributeValue in newAttributes.items():
 
+            # Игнорируем специальные атрибуты
+            if attributeName.startswith('__') and attributeName.endswith('__'):
+                continue
+
             # let's backup this attribute for future uses
             result = extend_class.getattr(base, attributeName)
 
-            if result != None:
+            if result is not None:
                 # ! dirty code, gonna fix it later, it's okay for now
                 setattr(
                     base,
@@ -170,13 +185,13 @@ class extend_class(object):  # nocov
         try:
             value = getattr(obj, attributeName)
             return {"owner": obj, "value": value}
-        except BaseException as e:
+        except AttributeError:
             return None
 
 
 class extend_override_class(extend_class):
     """
-    Extend a class, all attributes will be added to its parents\n
+    Extend a class, all attributes will be added to its parents
     If those attributes are already existed, they will be replaced by the new one
     """
 

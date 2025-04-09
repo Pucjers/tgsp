@@ -1,16 +1,16 @@
 [
   {
-    "id": "752e5886-844e-4524-9911-7dc0dfdb8ffc",
-    "phone": "+84923626554",
-    "name": "admin pidaras 4",
-    "username": "cheifbdj",
-    "avatar": "/uploads/0329182b-3f64-4e1b-895a-3423a82574ea.jpg",
-    "status": "\u041e\u043a",
+    "id": "c702427d-c499-4075-a2e0-0493eb4d0cc0",
+    "phone": "+380989283872",
+    "name": "Ivan Butryi",
+    "username": "ibutryi",
+    "avatar": "/uploads/acf660ce-eacf-466a-acf1-11fd5948817d.jpg",
+    "status": "\u041d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d",
     "limits": {
       "daily_invites": 30,
       "daily_messages": 50
     },
-    "created_at": "2025-04-07T01:03:50.127580",
+    "created_at": "2025-04-09T16:39:00.752347",
     "cooldown_until": null,
     "list_id": "main",
     "premium": false,

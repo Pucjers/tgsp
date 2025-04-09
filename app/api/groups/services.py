@@ -79,6 +79,18 @@ def save_groups(groups: List[Dict[str, Any]]) -> bool:
             logger.error(f"Error saving groups: {e}")
         return False
 
+def get_group_by_id(group_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a single group by its ID
+    
+    Args:
+        group_id: ID of the group to retrieve
+        
+    Returns:
+        Group data dictionary or None if not found
+    """
+    groups = get_all_groups()
+    return next((group for group in groups if group['id'] == group_id), None)
 
 def get_filtered_groups(list_id: str = 'all') -> List[Dict[str, Any]]:
     """

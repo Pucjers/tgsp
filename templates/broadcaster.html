@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TgNinja - Message Broadcaster</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/dark-theme.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+    <style>
+        /* Additional styles specific to broadcaster */
+        .broadcaster-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 20px;
+        }
+        
+        .broadcaster-section {
+            background-color: var(--bg-white);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .broadcaster-config {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .config-column {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        .selection-box {
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+            padding: 10px;
+        }
+        
+        .selection-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+            margin-bottom: 5px;
+        }
+        
+        .selection-item:hover {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+        
+        .selection-item.selected {
+            background-color: rgba(62, 142, 208, 0.1);
+        }
+        
+        .selection-item-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .selection-item-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .selection-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        
+        .message-composer {
+            margin-top: 20px;
+        }
+        
+        .message-input {
+            width: 100%;
+            min-height: 120px;
+            resize: vertical;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 12px;
+            margin-top: 10px;
+            font-family: inherit;
+        }
+        
+        .message-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(62, 142, 208, 0.2);
+        }
+        
+        .message-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .image-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .image-preview-item {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+        
+        .image-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .image-preview-item .remove-image {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        
+        .broadcasting-controls {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .logs-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin-top: 20px;
+        }
+        
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .logs-container {
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            height: 200px;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: monospace;
+            background-color: var(--light-bg);
+        }
+        
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+        }
+        
+        .log-entry.success {
+            color: var(--success-color);
+        }
+        
+        .log-entry.error {
+            color: var(--danger-color);
+        }
+        
+        .log-entry.warning {
+            color: var(--warning-color);
+        }
+        
+        .log-entry-time {
+            color: var(--text-light);
+            margin-right: 8px;
+        }
+        
+        .progress-indicator {
+            margin-top: 15px;
+            display: none;
+        }
+        
+        .progress-indicator.active {
+            display: block;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background-color: var(--border-color);
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary-color);
+            width: 0;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        /* Tooltip styles */
+        .tooltip {
+            position: relative;
+        }
+        
+        .tooltip-content {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 100;
+            margin-bottom: 5px;
+        }
+        
+        .tooltip:hover .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <svg class="logo" viewBox="0 0 24 24">
+                    <use xlink:href="#logo"></use>
+                </svg>
+                <h1>TgNinja</h1>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul id="sidebar-menu">
+                    <li data-page="accounts">
+                        <i class="fas fa-users"></i>
+                        <span>Accounts</span>
+                    </li>
+                    <li data-page="parser">
+                        <i class="fas fa-search"></i>
+                        <span>Group Parser</span>
+                    </li>
+                    <li data-page="broadcaster" class="active">
+                        <i class="fas fa-broadcast-tower"></i>
+                        <span>Broadcaster</span>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="theme-toggle-btn" class="theme-toggle btn btn-icon" title="Toggle dark mode">
+                    <i class="fas fa-sun light-icon"></i>
+                    <i class="fas fa-moon dark-icon"></i>
+                </button>
+                <button id="settings-btn" class="btn btn-icon">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="help-btn" class="btn btn-icon">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+        </aside>
+        
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <h2>Message Broadcaster</h2>
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <i class="fas fa-broadcast-tower"></i>
+                            <span>Broadcast messages to multiple groups</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <section class="accounts-section">
+                <div class="broadcaster-container">
+                    <!-- Configuration Section -->
+                    <div class="broadcaster-section">
+                        <h3>Configuration</h3>
+                        
+                        <div class="broadcaster-config">
+                            <!-- Accounts Selection -->
+                            <div class="config-column">
+                                <div class="form-group">
+                                    <label for="accounts-filter">Accounts</label>
+                                    <div style="display: flex; gap: 10px;">
+                                        <select id="accounts-filter" class="form-control">
+                                            <option value="all">All Lists</option>
+                                            <!-- Account lists will be loaded here -->
+                                        </select>
+                                        <button id="select-all-accounts-btn" class="btn btn-secondary btn-sm">
+                                            Select All
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="selection-box" id="accounts-selection">
+                                    <!-- Accounts will be loaded here -->
+                                    <div class="empty-selection-message">
+                                        No accounts available. Add accounts from the Accounts page.
+                                    </div>
+                                </div>
+                                
+                                <div class="selection-actions">
+                                    <span id="selected-accounts-count">0 selected</span>
+                                    <button id="clear-accounts-btn" class="btn btn-text btn-sm">Clear</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Groups Selection -->
+                            <div class="config-column">
+                                <div class="form-group">
+                                    <label for="groups-filter">Groups</label>
+                                    <div style="display: flex; gap: 10px;">
+                                        <select id="groups-filter" class="form-control">
+                                            <option value="all">All Lists</option>
+                                            <!-- Group lists will be loaded here -->
+                                        </select>
+                                        <button id="select-all-groups-btn" class="btn btn-secondary btn-sm">
+                                            Select All
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="selection-box" id="groups-selection">
+                                    <!-- Groups will be loaded here -->
+                                    <div class="empty-selection-message">
+                                        No groups available. Add groups from the Group Parser page.
+                                    </div>
+                                </div>
+                                
+                                <div class="selection-actions">
+                                    <span id="selected-groups-count">0 selected</span>
+                                    <button id="clear-groups-btn" class="btn btn-text btn-sm">Clear</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Messaging Options -->
+                            <div class="config-column">
+                                <div class="form-group">
+                                    <label>Time Interval</label>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <div style="flex: 1;">
+                                            <label for="interval-min" style="font-weight: normal;">Min (seconds)</label>
+                                            <input type="number" id="interval-min" class="form-control" value="30" min="5">
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label for="interval-max" style="font-weight: normal;">Max (seconds)</label>
+                                            <input type="number" id="interval-max" class="form-control" value="60" min="5">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Broadcasting Options</label>
+                                    <div class="form-check">
+                                        <input type="checkbox" id="randomize-messages" checked>
+                                        <label for="randomize-messages">Randomize message order</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" id="randomize-accounts" checked>
+                                        <label for="randomize-accounts">Randomize account order</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" id="skip-errors">
+                                        <label for="skip-errors">Continue on errors</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Message Composer -->
+                        <div class="message-composer">
+                            <label for="message-input">Message</label>
+                            <textarea id="message-input" class="message-input" placeholder="Enter your message here..."></textarea>
+                            
+                            <div class="message-options">
+                                <button id="add-image-btn" class="btn btn-secondary">
+                                    <i class="fas fa-image"></i> Add Image
+                                </button>
+                                <input type="file" id="image-upload" accept="image/*" style="display: none;" multiple>
+                                
+                                <div class="tooltip">
+                                    <button id="add-placeholder-btn" class="btn btn-secondary">
+                                        <i class="fas fa-tag"></i> Add Placeholder
+                                    </button>
+                                    <div class="tooltip-content">
+                                        Insert dynamic content like {name}, {group}
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <select id="message-template" class="form-control">
+                                        <option value="">Load Template...</option>
+                                        <option value="template1">Template 1: Introduction</option>
+                                        <option value="template2">Template 2: Event Invitation</option>
+                                        <option value="template3">Template 3: Promotion</option>
+                                    </select>
+                                </div>
+                                
+                                <button id="save-template-btn" class="btn btn-secondary">
+                                    <i class="fas fa-save"></i> Save as Template
+                                </button>
+                            </div>
+                            
+                            <div class="image-preview" id="image-preview">
+                                <!-- Image previews will be shown here -->
+                            </div>
+                        </div>
+                        
+                        <!-- Broadcasting Controls -->
+                        <div class="broadcasting-controls">
+                            <button id="start-broadcast-btn" class="btn btn-primary">
+                                <i class="fas fa-play"></i> Start Broadcasting
+                            </button>
+                            
+                            <button id="pause-broadcast-btn" class="btn btn-secondary" disabled>
+                                <i class="fas fa-pause"></i> Pause
+                            </button>
+                            
+                            <button id="stop-broadcast-btn" class="btn btn-danger" disabled>
+                                <i class="fas fa-stop"></i> Stop
+                            </button>
+                            
+                            <button id="test-message-btn" class="btn btn-text">
+                                <i class="fas fa-vial"></i> Test Message
+                            </button>
+                        </div>
+                        
+                        <!-- Progress Indicator -->
+                        <div class="progress-indicator" id="progress-indicator">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                            <div class="progress-stats">
+                                <span id="progress-status">Processing...</span>
+                                <span id="progress-count">0/0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Logs Section -->
+                    <div class="broadcaster-section logs-section">
+                        <div class="logs-header">
+                            <h3>Broadcasting Logs</h3>
+                            <div>
+                                <button id="clear-logs-btn" class="btn btn-text btn-sm">
+                                    <i class="fas fa-trash"></i> Clear Logs
+                                </button>
+                                <button id="export-logs-btn" class="btn btn-text btn-sm">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="logs-container" id="logs-container">
+                            <!-- Logs will be shown here -->
+                            <div class="log-entry">
+                                <span class="log-entry-time">12:00:00</span>
+                                <span>Broadcasting system initialized and ready.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Modal Container -->
+    <div class="modal-container" id="modal-container">
+        <!-- Save Template Modal -->
+        <div class="modal" id="save-template-modal">
+            <div class="modal-header">
+                <h3>Save Template</h3>
+                <button class="btn-close" data-close-modal="save-template-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="save-template-form">
+                    <div class="form-group">
+                        <label for="template-name">Template Name</label>
+                        <input type="text" id="template-name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="template-description">Description (optional)</label>
+                        <textarea id="template-description" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="save-template-modal">Cancel</button>
+                <button class="btn btn-primary" id="confirm-save-template-btn">Save Template</button>
+            </div>
+        </div>
+        
+        <!-- Test Message Modal -->
+        <div class="modal" id="test-message-modal">
+            <div class="modal-header">
+                <h3>Test Message</h3>
+                <button class="btn-close" data-close-modal="test-message-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Send a test message to verify your configuration.</p>
+                
+                <div class="form-group">
+                    <label for="test-account">Select Account</label>
+                    <select id="test-account" name="account_id">
+                        <!-- Accounts will be loaded here -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="test-group">Select Group</label>
+                    <select id="test-group" name="group_id">
+                        <!-- Groups will be loaded here -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="test-message-modal">Cancel</button>
+                <button class="btn btn-primary" id="send-test-message-btn">Send Test Message</button>
+            </div>
+        </div>
+        
+        <!-- Add Placeholder Modal -->
+        <div class="modal" id="add-placeholder-modal">
+            <div class="modal-header">
+                <h3>Add Placeholder</h3>
+                <button class="btn-close" data-close-modal="add-placeholder-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Select a placeholder to insert into your message:</p>
+                
+                <div class="form-group">
+                    <select id="placeholder-type" class="form-control">
+                        <option value="{name}">Account Name</option>
+                        <option value="{username}">Account Username</option>
+                        <option value="{group}">Group Name</option>
+                        <option value="{date}">Current Date</option>
+                        <option value="{time}">Current Time</option>
+                        <option value="{custom}">Custom...</option>
+                    </select>
+                </div>
+                
+                <div id="custom-placeholder-container" style="display: none;">
+                    <div class="form-group">
+                        <label for="custom-placeholder">Custom Placeholder</label>
+                        <input type="text" id="custom-placeholder" class="form-control" placeholder="Enter custom placeholder...">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-placeholder-modal">Cancel</button>
+                <button class="btn btn-primary" id="insert-placeholder-btn">Insert</button>
+            </div>
+        </div>
+        
+        <!-- Confirmation Modal -->
+        <div class="modal" id="confirmation-modal">
+            <div class="modal-header">
+                <h3>Confirm Broadcasting</h3>
+                <button class="btn-close" data-close-modal="confirmation-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p id="confirmation-message">Are you sure you want to start broadcasting? This will send messages to all selected groups using the selected accounts.</p>
+                
+                <div id="confirmation-details">
+                    <p><strong>Accounts:</strong> <span id="confirm-accounts-count">0</span></p>
+                    <p><strong>Groups:</strong> <span id="confirm-groups-count">0</span></p>
+                    <p><strong>Total Messages:</strong> <span id="confirm-messages-total">0</span></p>
+                    <p><strong>Estimated Time:</strong> <span id="confirm-estimated-time">0 minutes</span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="confirmation-modal">Cancel</button>
+                <button class="btn btn-primary" id="confirm-broadcast-btn">Start Broadcasting</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- SVG Assets -->
+    <svg style="display: none;">
+        <symbol id="logo" viewBox="0 0 24 24">
+            <path d="M12,2 C17.5228,2 22,6.47715 22,12 C22,17.5228 17.5228,22 12,22 C6.47715,22 2,17.5228 2,12 C2,6.47715 6.47715,2 12,2 Z M12,5 C8.13401,5 5,8.13401 5,12 C5,15.866 8.13401,19 12,19 C15.866,19 19,15.866 19,12 C19,8.13401 15.866,5 12,5 Z M14.1213,8.46447 L15.5355,9.87868 L12,13.4142 L8.46447,9.87868 L9.87868,8.46447 L12,10.5858 L14.1213,8.46447 Z" fill="currentColor"/>
+        </symbol>
+    </svg>
+    
+    <script src="/js/broadcaster.js"></script>
+    <script src="/js/theme-toggle.js"></script>
+</body>
+</html>
