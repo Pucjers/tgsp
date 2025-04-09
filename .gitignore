@@ -2,6 +2,9 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*/__pycache__/
+**/__pycache__/
+**/*.py[cod]
 
 # C extensions
 *.so
@@ -54,7 +57,22 @@ cover/
 # Translations
 *.mo
 *.pot
+
+# Virtual Environment
 venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+.env
+.venv
+**/venv/
+**/env/
+**/.env
+**/.venv
+virtualenv/
+**/virtualenv/
+
 # Django stuff:
 *.log
 local_settings.py
