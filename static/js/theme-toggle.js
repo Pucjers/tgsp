@@ -8,7 +8,7 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialization function
     const initThemeToggle = () => {
-        // Create the theme toggle button
+        // Create the theme toggle button if it doesn't exist yet
         createThemeToggleButton();
         
         // Apply the saved theme or default to light
@@ -23,6 +23,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const sidebarFooter = document.querySelector('.sidebar-footer');
         
         if (!sidebarFooter) return;
+        
+        // Check if the button already exists - this prevents duplication
+        if (document.getElementById('theme-toggle-btn')) return;
         
         // Create button element
         const themeToggleBtn = document.createElement('button');

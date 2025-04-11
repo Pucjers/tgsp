@@ -288,3 +288,98 @@
 [data-theme="dark"] .warning-icon i {
     color: var(--danger-color);
 }
+
+/* Additional dark theme styles for broadcaster page */
+[data-theme="dark"] .broadcaster-section {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-color);
+}
+
+[data-theme="dark"] .selection-box {
+    background-color: #2c3038;
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .selection-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .selection-item.selected {
+    background-color: rgba(78, 159, 224, 0.2);
+}
+
+[data-theme="dark"] .message-input {
+    background-color: #2c3038;
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .message-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(78, 159, 224, 0.2);
+}
+
+[data-theme="dark"] .image-preview-item {
+    border-color: var(--border-color);
+    background-color: #2c3038;
+}
+
+[data-theme="dark"] .logs-container {
+    background-color: #18191a;
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .log-entry {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] #tdata-upload-area {
+    background-color: #2c3038;
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] select,
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"] {
+    background-color: #2c3038;
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .tooltip-content {
+    background-color: rgba(0, 0, 0, 0.9);
+}
+
+/* Fix for modal styles in dark theme */
+[data-theme="dark"] .modal {
+    background-color: var(--bg-white);
+}
+
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .modal-body {
+    color: var(--text-color);
+}
+
+/* Fix for group parser in dark theme */
+[data-theme="dark"] .group-context-menu {
+    background-color: var(--bg-white);
+    border: 1px solid var(--border-color);
+}
+
+/* Fix for selection item in dark theme */
+[data-theme="dark"] .selection-item {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .selection-item-info {
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .selection-item-details {
+    color: var(--text-light);
+}

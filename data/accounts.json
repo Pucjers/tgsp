@@ -1,16 +1,16 @@
 [
   {
-    "id": "c702427d-c499-4075-a2e0-0493eb4d0cc0",
+    "id": "5e5c0d04-adfa-40b5-9c08-68a7abe957be",
     "phone": "+380989283872",
     "name": "Ivan Butryi",
     "username": "ibutryi",
-    "avatar": "/uploads/acf660ce-eacf-466a-acf1-11fd5948817d.jpg",
-    "status": "\u041d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d",
+    "avatar": "/uploads/4f51bc3b-a6a6-46eb-93fa-2256971585c3.jpg",
+    "status": "\u041e\u043a",
     "limits": {
       "daily_invites": 30,
       "daily_messages": 50
     },
-    "created_at": "2025-04-09T16:39:00.752347",
+    "created_at": "2025-04-11T16:45:25.023742",
     "cooldown_until": null,
     "list_id": "main",
     "premium": false,
