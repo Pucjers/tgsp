@@ -1008,6 +1008,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 name,
                 description,
                 message,
+                images: state.images.map(img => ({
+                    url: img.url,
+                    uploaded: img.uploaded
+                })),
                 createdAt: new Date().toISOString()
             };
             
@@ -1045,8 +1049,27 @@ document.addEventListener('DOMContentLoaded', function() {
             // Set the message text
             elements.messageInput.value = template.message;
             
+            state.images = [];
+
+            // Load images if the template has any
+            if (template.images && template.images.length > 0) {
+               template.images.forEach(img => {
+                state.images.push({
+                    url: img.url,
+                    uploaded: img.uploaded || True, // Asume uploaded if not specified
+                    file: null // We don`t store the file object
+                });
+               });
+
+            renderImagePreviews();
+            
             // Show success message
-            showToast('Template loaded', 'success');
+            showToast('Template loaded with ${template.images.length} images', 'success');
+            } else {
+                // No images, just render empty previews
+                renderImagePreviews();
+                showToast('Template loaded without images', 'success');
+            }
         }
         
         // Reset the dropdown
@@ -1536,7 +1559,235 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     };
-
+    function showTemplateManagement() {
+        // Populate the template list
+        renderTemplateList();
+        
+        // Show the modal
+        showModal('manage-templates-modal');
+    }
+    function renderTemplateList(searchTerm = '') {
+        const container = document.getElementById('templates-list-container');
+        const emptyState = document.getElementById('empty-templates');
+        
+        // Get all templates
+        const templates = Object.values(state.templates);
+        
+        // Filter by search term if provided
+        const filteredTemplates = searchTerm 
+            ? templates.filter(t => 
+                t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                t.description.toLowerCase().includes(searchTerm.toLowerCase()))
+            : templates;
+        
+        if (filteredTemplates.length === 0) {
+            container.innerHTML = '';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        emptyState.style.display = 'none';
+        
+        // Sort templates by date (newest first)
+        filteredTemplates.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        // Generate HTML
+        container.innerHTML = filteredTemplates.map(template => {
+            const imageCount = template.images ? template.images.length : 0;
+            const date = new Date(template.createdAt);
+            const dateStr = date.toLocaleDateString();
+            
+            return `
+                <div class="template-list-item" data-id="${template.id}">
+                    <div class="template-name">${template.name}</div>
+                    <div class="template-meta">
+                        ${imageCount > 0 ? 
+                            `<div class="template-image-count">
+                                <i class="fas fa-image"></i> ${imageCount}
+                            </div>` : ''}
+                        <div class="template-date">${dateStr}</div>
+                        <div class="template-actions">
+                            <button class="btn btn-icon btn-text view-template-btn" data-id="${template.id}" title="View template">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-icon btn-text load-template-btn" data-id="${template.id}" title="Load template">
+                                <i class="fas fa-file-import"></i>
+                            </button>
+                            <button class="btn btn-icon btn-danger delete-template-btn" data-id="${template.id}" title="Delete template">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Add event listeners
+        container.querySelectorAll('.view-template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const templateId = btn.dataset.id;
+                viewTemplate(templateId);
+            });
+        });
+        
+        container.querySelectorAll('.load-template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const templateId = btn.dataset.id;
+                loadTemplateById(templateId);
+                hideModal('manage-templates-modal');
+            });
+        });
+        
+        container.querySelectorAll('.delete-template-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const templateId = btn.dataset.id;
+                deleteTemplate(templateId);
+            });
+        });
+        
+        // Make entire row clickable to view template
+        container.querySelectorAll('.template-list-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const templateId = item.dataset.id;
+                viewTemplate(templateId);
+            });
+        });
+    }
+    function viewTemplate(templateId) {
+        const template = state.templates[templateId];
+        if (!template) return;
+        
+        // Populate the view template modal
+        document.getElementById('view-template-title').textContent = template.name;
+        document.getElementById('view-template-description').textContent = template.description || 'No description provided.';
+        document.getElementById('view-template-message').textContent = template.message;
+        
+        const imageSection = document.getElementById('view-template-images-section');
+        const imageContainer = document.getElementById('view-template-images');
+        const imageCount = document.getElementById('view-template-image-count');
+        
+        // Check if template has images
+        if (template.images && template.images.length > 0) {
+            imageSection.style.display = 'block';
+            imageCount.textContent = template.images.length;
+            
+            // Generate image thumbnails
+            imageContainer.innerHTML = template.images.map(img => `
+                <div class="template-image-item">
+                    <img src="${img.url}" alt="Template image">
+                </div>
+            `).join('');
+        } else {
+            imageSection.style.display = 'none';
+            imageContainer.innerHTML = '';
+            imageCount.textContent = '0';
+        }
+        
+        // Set up load button
+        const loadBtn = document.getElementById('load-viewed-template-btn');
+        
+        // Remove existing event listeners
+        const newLoadBtn = loadBtn.cloneNode(true);
+        loadBtn.parentNode.replaceChild(newLoadBtn, loadBtn);
+        
+        newLoadBtn.addEventListener('click', () => {
+            loadTemplateById(templateId);
+            hideModal('view-template-modal');
+        });
+        
+        // Show the modal
+        showModal('view-template-modal');
+    }
+    function loadTemplateById(templateId) {
+        const template = state.templates[templateId];
+        if (!template) return;
+        
+        // Clear existing state
+        if (state.images.length > 0 || elements.messageInput.value.trim()) {
+            if (!confirm('This will replace your current message and images. Are you sure?')) {
+                return;
+            }
+        }
+        
+        // Set the message text
+        elements.messageInput.value = template.message;
+        
+        // Clear existing images
+        state.images = [];
+        
+        // Load images if the template has any
+        if (template.images && template.images.length > 0) {
+            // Add template images to state
+            template.images.forEach(img => {
+                state.images.push({
+                    url: img.url,
+                    uploaded: img.uploaded || true,
+                    file: null // We don't store the file object
+                });
+            });
+        }
+        
+        // Render the image previews
+        renderImagePreviews();
+        
+        showToast(`Template "${template.name}" loaded`, 'success');
+    }
+    function deleteTemplate(templateId) {
+        if (!confirm('Are you sure you want to delete this template?')) {
+            return;
+        }
+        
+        try {
+            // Get templates from storage
+            const templates = JSON.parse(localStorage.getItem('broadcaster_templates') || '{}');
+            
+            // Delete the template
+            delete templates[templateId];
+            
+            // Save back to storage
+            localStorage.setItem('broadcaster_templates', JSON.stringify(templates));
+            
+            // Update state
+            state.templates = templates;
+            
+            // Re-render the list
+            renderTemplateList();
+            
+            showToast('Template deleted successfully', 'success');
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            showToast('Error deleting template', 'error');
+        }
+    }
+    document.getElementById('template-search-input').addEventListener('input', (e) => {
+        renderTemplateList(e.target.value.trim());
+    });
+    
+    // Add event listener for new template button
+    document.getElementById('new-template-btn').addEventListener('click', () => {
+        hideModal('manage-templates-modal');
+        handleSaveTemplate();
+    });
+    function setupTemplateManagement() {
+        // Create a button to manage templates instead of a dropdown
+        const templateSection = document.querySelector('.message-options');
+        
+        // Replace the select dropdown with a button
+        const templateDropdown = document.getElementById('message-template');
+        if (templateDropdown) {
+            const templateButton = document.createElement('button');
+            templateButton.id = 'manage-templates-btn';
+            templateButton.className = 'btn btn-secondary';
+            templateButton.innerHTML = '<i class="fas fa-file-alt"></i> Templates';
+            templateDropdown.parentNode.replaceChild(templateButton, templateDropdown);
+            
+            // Add event listener
+            templateButton.addEventListener('click', showTemplateManagement);
+        }
+    }
     // Initialization
     const init = async () => {
         // Load data
@@ -1552,6 +1803,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Load templates
         renderTemplates();
+        setupTemplateManagement();
         
         // Add initial log
         addLog('Broadcasting system initialized and ready.', 'info');
@@ -1559,7 +1811,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Attach event listeners
         attachEventListeners();
     };
+    function showTemplateManagement() {
+    // Populate the template list
+    renderTemplateList();
     
+    // Show the modal
+    showModal('manage-templates-modal');
+}
     // Start the app
     init();
 });

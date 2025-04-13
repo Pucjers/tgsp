@@ -820,6 +820,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Navigate to the group parser page
                     window.location.href = '/group-parser.html';
                 }
+                if (page === 'broadcaster') {
+                    window.location.href = '/broadcaster.html';
+                }
+                if (page === 'accounts') {
+                    window.location.href = '/accounts.html';
+                }
                 // No need to handle the accounts page as we're already on it
             });
         }
@@ -840,7 +846,8 @@ document.addEventListener('DOMContentLoaded', function() {
             await loadAccounts(state.currentListId);
             await loadStats(state.currentListId);
         }
-        
+        elements.selectAllCheckbox.checked = false;
+        elements.selectAllCheckbox.indeterminate = false;
         // Re-enable the button
         elements.checkSelectedBtn.disabled = false;
         elements.checkSelectedBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check Selected';

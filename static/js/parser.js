@@ -948,6 +948,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Redirect to accounts page
             window.location.href = '/index.html';
         }
+        if (page === 'broadcaster') {
+            window.location.href = '/broadcaster.html';
+        }
     };
 
     const handleGroupListClick = async (event) => {
