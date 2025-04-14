@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TgNinja - Proxy Management</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/dark-theme.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+    <style>
+        /* Additional styles specific to proxy management */
+        .proxy-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 20px;
+        }
+        
+        .proxy-section {
+            background-color: var(--bg-white);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .proxy-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .proxy-form .form-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .proxy-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .proxy-table th, 
+        .proxy-table td {
+            text-align: left;
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .proxy-table th {
+            font-weight: 500;
+            color: var(--text-light);
+            background-color: #f9fafc;
+        }
+        
+        .proxy-table tbody tr {
+            transition: var(--transition);
+        }
+        
+        .proxy-table tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.01);
+        }
+        
+        .proxy-info {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .proxy-address {
+            font-weight: 500;
+        }
+        
+        .proxy-details {
+            color: var(--text-light);
+            font-size: 13px;
+        }
+        
+        .proxy-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-badge.online {
+            background-color: rgba(72, 199, 142, 0.1);
+            color: var(--success-color);
+        }
+        
+        .status-badge.offline {
+            background-color: rgba(241, 70, 104, 0.1);
+            color: var(--danger-color);
+        }
+        
+        .status-badge.untested {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--text-light);
+        }
+        
+        .proxy-usage {
+            width: 100%;
+            height: 5px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .proxy-usage-bar {
+            height: 100%;
+            background-color: var(--primary-color);
+            width: 0%;
+        }
+        
+        .proxy-upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            text-align: center;
+            margin-top: 20px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .proxy-upload-area:hover {
+            border-color: var(--primary-color);
+            background-color: rgba(62, 142, 208, 0.03);
+        }
+        
+        .proxy-upload-area.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(62, 142, 208, 0.05);
+        }
+        
+        .proxy-upload-area i {
+            font-size: 36px;
+            color: var(--text-lighter);
+            margin-bottom: 10px;
+        }
+        
+        .proxy-formats {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.02);
+            border-radius: var(--border-radius);
+        }
+        
+        .proxy-formats h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .proxy-formats ul {
+            list-style: disc;
+            padding-left: 20px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .proxy-formats li {
+            margin-bottom: 5px;
+        }
+        
+        .proxy-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--text-light);
+        }
+        
+        .proxy-type.socks5 {
+            background-color: rgba(116, 58, 213, 0.1);
+            color: #743ad5;
+        }
+        
+        .proxy-type.http {
+            background-color: rgba(241, 196, 15, 0.1);
+            color: #f1c40f;
+        }
+        
+        .proxy-type.https {
+            background-color: rgba(46, 204, 113, 0.1);
+            color: #2ecc71;
+        }
+        
+        /* Test results dialog */
+        .test-results {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            font-size: 13px;
+        }
+        
+        .test-results.success {
+            border-color: var(--success-color);
+            background-color: rgba(72, 199, 142, 0.05);
+        }
+        
+        .test-results.error {
+            border-color: var(--danger-color);
+            background-color: rgba(241, 70, 104, 0.05);
+        }
+        
+        .test-result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .empty-proxy-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-light);
+        }
+        
+        .empty-proxy-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <svg class="logo" viewBox="0 0 24 24">
+                    <use xlink:href="#logo"></use>
+                </svg>
+                <h1>TgNinja</h1>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul id="sidebar-menu">
+                    <li data-page="accounts">
+                        <i class="fas fa-users"></i>
+                        <span>Accounts</span>
+                    </li>
+                    <li data-page="proxies" class="active">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Proxies</span>
+                        <span class="account-count" id="proxy-count">0</span>
+                    </li>
+                    <li data-page="parser">
+                        <i class="fas fa-search"></i>
+                        <span>Group Parser</span>
+                    </li>
+                    <li data-page="broadcaster">
+                        <i class="fas fa-broadcast-tower"></i>
+                        <span>Broadcaster</span>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="settings-btn" class="btn btn-icon">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="theme-toggle-btn" class="theme-toggle btn btn-icon" title="Toggle dark mode">
+                    <i class="fas fa-sun light-icon"></i>
+                    <i class="fas fa-moon dark-icon"></i>
+                </button>
+                <button id="help-btn" class="btn btn-icon">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+            </div>
+        </aside>
+        
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-left">
+                    <h2>Proxy Management</h2>
+                    <div class="stats-container">
+                        <div class="stat-item">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Manage proxies for Telegram accounts</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="header-right">
+                    <div class="search-container">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-input" placeholder="Search proxies...">
+                    </div>
+                    
+                    <div class="actions-container">
+                        <button id="test-selected-btn" class="btn btn-secondary" disabled>
+                            <i class="fas fa-vial"></i> Test Selected
+                        </button>
+                        <button id="add-proxy-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Proxy
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <section class="accounts-section">
+                <div class="proxy-container">
+                    <!-- Proxy List Section -->
+                    <div class="proxy-section">
+                        <div class="table-container">
+                            <table class="proxy-table">
+                                <thead>
+                                    <tr>
+                                        <th class="checkbox-col">
+                                            <input type="checkbox" id="select-all-checkbox">
+                                        </th>
+                                        <th>Proxy</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Usage</th>
+                                        <th>Last Checked</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="proxies-table-body">
+                                    <!-- Proxies will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div id="empty-proxy-state" class="empty-proxy-state">
+                            <i class="fas fa-shield-alt"></i>
+                            <h3>No proxies found</h3>
+                            <p>Add your first proxy to get started</p>
+                            <button class="btn btn-primary" id="empty-add-btn">
+                                <i class="fas fa-plus"></i> Add Proxy
+                            </button>
+                        </div>
+                        
+                        <div class="table-footer">
+                            <div class="selection-actions" id="proxy-selection-actions" style="display: none;">
+                                <span id="selected-count">0 selected</span>
+                                <div class="actions">
+                                    <button id="test-selected-proxies-btn" class="btn btn-text" disabled>
+                                        <i class="fas fa-vial"></i> Test
+                                    </button>
+                                    <button id="delete-selected-proxies-btn" class="btn btn-text btn-danger" disabled>
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Modal Container -->
+    <div class="modal-container" id="modal-container">
+        <!-- Add Proxy Modal -->
+        <div class="modal" id="add-proxy-modal">
+            <div class="modal-header">
+                <h3>Add Proxy</h3>
+                <button class="btn-close" data-close-modal="add-proxy-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-proxy-form">
+                    <div class="form-group">
+                        <label for="proxy-type">Proxy Type</label>
+                        <select id="proxy-type" name="type" required>
+                            <option value="socks5">SOCKS5</option>
+                            <option value="http">HTTP</option>
+                            <option value="https">HTTPS</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="proxy-host">Host</label>
+                        <input type="text" id="proxy-host" name="host" required placeholder="e.g., 192.168.1.1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="proxy-port">Port</label>
+                        <input type="number" id="proxy-port" name="port" required placeholder="e.g., 8080">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="proxy-username">Username (optional)</label>
+                        <input type="text" id="proxy-username" name="username" placeholder="e.g., user">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="proxy-password">Password (optional)</label>
+                        <input type="password" id="proxy-password" name="password" placeholder="e.g., password">
+                    </div>
+                    
+                    <div class="test-results" id="proxy-test-results" style="display: none;">
+                        <!-- Test results will be shown here -->
+                    </div>
+                </form>
+                
+                <div class="proxy-upload-area" id="proxy-upload-area">
+                    <i class="fas fa-file-upload"></i>
+                    <h4>Drag & Drop Proxy List File</h4>
+                    <p>or</p>
+                    <label for="proxy-file-input" class="btn btn-secondary">Browse Files</label>
+                    <input type="file" id="proxy-file-input" accept=".txt" style="display: none;">
+                </div>
+                
+                <div class="proxy-formats">
+                    <h4>Supported Formats (one proxy per line):</h4>
+                    <ul>
+                        <li>IP:Port (e.g., 192.168.1.1:8080)</li>
+                        <li>Type:IP:Port (e.g., socks5:192.168.1.1:8080)</li>
+                        <li>IP:Port:Username:Password (e.g., 192.168.1.1:8080:user:pass)</li>
+                        <li>Type:IP:Port:Username:Password (e.g., http:192.168.1.1:8080:user:pass)</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="add-proxy-modal">Cancel</button>
+                <button class="btn btn-secondary" id="test-proxy-btn">Test Proxy</button>
+                <button class="btn btn-primary" id="save-proxy-btn">Save Proxy</button>
+            </div>
+        </div>
+        
+        <!-- Delete Proxies Modal -->
+        <div class="modal" id="delete-proxies-modal">
+            <div class="modal-header">
+                <h3>Delete Proxies</h3>
+                <button class="btn-close" data-close-modal="delete-proxies-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p id="delete-proxies-message">Are you sure you want to delete the selected proxies? This will remove them from all accounts using them.</p>
+                <div id="associated-accounts-warning" style="margin-top: 15px; color: var(--danger-color);">
+                    <p><strong>Warning:</strong> The following accounts will be affected:</p>
+                    <ul id="affected-accounts-list">
+                        <!-- Affected accounts will be listed here -->
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="delete-proxies-modal">Cancel</button>
+                <button class="btn btn-danger" id="confirm-delete-proxies-btn">Delete</button>
+            </div>
+        </div>
+        
+        <!-- Test Results Modal -->
+        <div class="modal" id="test-results-modal">
+            <div class="modal-header">
+                <h3>Proxy Test Results</h3>
+                <button class="btn-close" data-close-modal="test-results-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="test-results-content">
+                    <!-- Test results will be shown here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-text" data-close-modal="test-results-modal">Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- SVG Assets -->
+    <svg style="display: none;">
+        <symbol id="logo" viewBox="0 0 24 24">
+            <path d="M12,2 C17.5228,2 22,6.47715 22,12 C22,17.5228 17.5228,22 12,22 C6.47715,22 2,17.5228 2,12 C2,6.47715 6.47715,2 12,2 Z M12,5 C8.13401,5 5,8.13401 5,12 C5,15.866 8.13401,19 12,19 C15.866,19 19,15.866 19,12 C19,8.13401 15.866,5 12,5 Z M14.1213,8.46447 L15.5355,9.87868 L12,13.4142 L8.46447,9.87868 L9.87868,8.46447 L12,10.5858 L14.1213,8.46447 Z" fill="currentColor"/>
+        </symbol>
+    </svg>
+    
+    <script src="/js/proxies.js"></script>
+    <script src="/js/theme-toggle.js"></script>
+</body>
+</html>
