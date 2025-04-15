@@ -3,6 +3,7 @@ import uuid
 import datetime
 import tempfile
 import shutil
+import logging
 from typing import List, Dict, Any, Optional, Union
 from urllib.parse import quote
 from flask import current_app
@@ -18,13 +19,20 @@ from app.utils.file_utils import (
     update_account_proxy
 )
 
+# Setup a basic logger for use outside application context
+logger = logging.getLogger(__name__)
+
 # Import TData integration if available
 try:
     from app.services.tdata_integration import convert_zip_tdata_and_get_account
     TDATA_SUPPORT = True
 except ImportError:
     TDATA_SUPPORT = False
-    current_app.logger.warning("TData integration not available. TData import will be disabled.")
+    try:
+        current_app.logger.warning("TData integration not available. TData import will be disabled.")
+    except RuntimeError:
+        # Use the module logger when outside application context
+        logger.warning("TData integration not available. TData import will be disabled.")
 
 # Import Telegram checker if available
 try:
@@ -32,7 +40,11 @@ try:
     TELEGRAM_CHECKER_SUPPORT = True
 except ImportError:
     TELEGRAM_CHECKER_SUPPORT = False
-    current_app.logger.warning("Telegram checker not available. Account status checking will use fallback mode.")
+    try:
+        current_app.logger.warning("Telegram checker not available. Account status checking will use fallback mode.")
+    except RuntimeError:
+        # Use the module logger when outside application context
+        logger.warning("Telegram checker not available. Account status checking will use fallback mode.")
 
 
 def get_filtered_accounts(list_id: str = 'all') -> List[Dict[str, Any]]:

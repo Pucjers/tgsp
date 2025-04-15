@@ -195,8 +195,33 @@ def import_proxies_from_text(proxy_list: List[str]) -> Dict[str, int]:
     proxies = get_proxies()
     imported_count = 0
     
-    for proxy_str in proxy_list:
-        proxy_str = proxy_str.strip()
+    for proxy_item in proxy_list:
+        # Make sure we're working with a string
+        if isinstance(proxy_item, dict):
+            # If we received a dict object, it might be a direct proxy definition
+            try:
+                # Create new proxy from the dict
+                proxy = Proxy(
+                    id=str(uuid.uuid4()),
+                    type=proxy_item.get('type', 'http'),
+                    host=proxy_item.get('host', ''),
+                    port=proxy_item.get('port', 0),
+                    username=proxy_item.get('username', ''),
+                    password=proxy_item.get('password', ''),
+                    status='untested',
+                    last_checked=None,
+                    accounts=[]
+                )
+                
+                proxies.append(proxy.to_dict())
+                imported_count += 1
+                continue
+            except Exception as e:
+                logger.error(f"Error importing proxy from dict: {e}")
+                continue
+        
+        # Normal string processing
+        proxy_str = str(proxy_item).strip()
         if not proxy_str:
             continue
         
