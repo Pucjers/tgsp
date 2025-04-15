@@ -628,3 +628,52 @@ def _load_api_credentials():
     # Use default values
     current_app.logger.warning("Using default API credentials")
     return 149467, "65f1b75a0b1d5a6461c1fc67b5514c1b"  # Public test keys app/api/accounts/routes.py - New API endpoints for importing session files and phone verification
+
+@accounts_bp.route('/import-tdata-zip', methods=['POST'])
+def import_tdata_zip_route():
+    """Import account from TData ZIP file"""
+    # Check if TData support is available
+    # if not TDATA_SUPPORT:
+    #     return jsonify({"error": "TData import is not supported in this installation"}), 400
+    
+    # Check if TData file is provided
+    if 'tdata_zip' not in request.files:
+        return jsonify({"error": "No TData file provided"}), 400
+    
+    tdata_zip = request.files['tdata_zip']
+    if tdata_zip.filename == '':
+        return jsonify({"error": "No TData file selected"}), 400
+    
+    if not tdata_zip.filename.endswith('.zip'):
+        return jsonify({"error": "File must be a .zip file"}), 400
+    
+    # Get other parameters
+    target_list_id = request.form.get('target_list_id', 'main')
+    proxy_id = request.form.get('proxy_id')
+    
+    if not proxy_id:
+        return jsonify({"error": "Proxy ID is required"}), 400
+    
+    # Verify proxy exists and can accept more accounts
+    from app.api.proxies.services import get_proxy_by_id
+    proxy = get_proxy_by_id(proxy_id)
+    if not proxy:
+        return jsonify({"error": "Proxy not found"}), 404
+    
+    # Check if proxy can accept more accounts
+    proxy_accounts = proxy.get('accounts', [])
+    if len(proxy_accounts) >= 3:
+        return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
+        
+    # Import the TData
+    from app.api.accounts.services import import_tdata_zip
+    try:
+        result = import_tdata_zip(tdata_zip, target_list_id, proxy_id)
+        
+        if "error" in result:
+            return jsonify(result), 400
+            
+        return jsonify(result)
+    except Exception as e:
+        current_app.logger.error(f"Error importing TData: {str(e)}")
+        return jsonify({"error": f"Error importing TData: {str(e)}"}), 500
