@@ -61,4 +61,54 @@ def create_app(config=None):
     for rule in app.url_map.iter_rules():
         print(f"{rule.endpoint}: {rule}")
 
+    bootstrap_telegram_import_api()
+
     return app
+
+def bootstrap_telegram_import_api():
+    """
+    Bootstrap the new Telegram import API endpoints.
+    This function should be called from app/__init__.py during application startup.
+    """
+    import os
+    import logging
+    
+    # Create necessary directories
+    for directory in ['saved_sessions', 'uploads']:
+        os.makedirs(directory, exist_ok=True)
+    
+    # Set up logging for Telethon
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
+    
+    # Check for required dependencies
+    try:
+        import telethon
+        from telethon import TelegramClient
+        print("Telethon is available - Session and Phone account import enabled")
+    except ImportError:
+        print("Telethon is not available - Session and Phone account import disabled")
+        print("To enable, install with: pip install telethon")
+    
+    try:
+        import asyncio
+        print("Asyncio is available")
+    except ImportError:
+        print("Asyncio is not available - Required for Telegram operations")
+        print("To enable, install with: pip install asyncio")
+    
+    # Verify API credentials
+    config_path = os.path.join(os.getcwd(), "data", "telegram_api.ini")
+    if not os.path.exists(config_path):
+        print("Warning: Telegram API credentials file not found at", config_path)
+        print("Using default testing credentials. For production, create this file with your API ID and hash.")
+    
+    # Print information about the new endpoints
+    print("\nNew API endpoints available:")
+    print("- POST /api/accounts/import-session - Import account from session file")
+    print("- POST /api/accounts/request-code - Request phone verification code")
+    print("- POST /api/accounts/verify-code - Verify phone number with code")
+    
+    return True
