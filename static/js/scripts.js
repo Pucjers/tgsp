@@ -2144,12 +2144,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Delete selected button
         elements.deleteSelectedBtn.addEventListener('click', handleDeleteSelected);
         
-        // Import TData button
-        elements.importTdataBtn.addEventListener('click', handleImportTData);
-        
-        // Save account button
-        document.getElementById('save-account-btn').addEventListener('click', handleSaveAccount);
-        
         // Save list button
         document.getElementById('save-list-btn').addEventListener('click', handleSaveList);
         
