@@ -964,37 +964,36 @@ document.addEventListener("DOMContentLoaded", function () {
       showToast("Please select an import method", "error");
       return;
     }
-
+  
     const proxySelect = document.getElementById("account-proxy");
     if (!proxySelect || !proxySelect.value) {
       showToast("Please select a proxy", "error");
       return;
     }
-
-    const selectedProxyId = proxySelect.value;
-
+  
+    const proxyId = proxySelect.value;
     const importMethod = selectedOption.dataset.option;
-
+  
     hideModal("account-import-modal");
-
+  
     switch (importMethod) {
       case "session":
         showModal("session-import-modal");
-        setupSessionImport(selectedProxyId);
+        setupSessionImport(proxyId);
         break;
       case "tdata":
         showModal("tdata-import-modal");
-        setupTDataImport(selectedProxyId);
+        setupTDataImport(proxyId);
         break;
       case "phone":
         showModal("phone-import-modal");
-        setupPhoneImport(selectedProxyId);
+        setupPhoneImport(proxyId);
         break;
       default:
         showToast("Invalid import method", "error");
         break;
     }
-  };
+  }
   const setupSessionImport = (proxyId) => {
     const backBtn = document.getElementById(
       "back-to-import-options-btn-session"
@@ -1090,14 +1089,14 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    const accountListSelect = document.getElementById("session-account-list");
-    if (accountListSelect) {
-      let options = "";
-      state.lists.forEach((list) => {
-        options += `<option value="${list.id}">${list.name}</option>`;
-      });
-      accountListSelect.innerHTML = options;
-    }
+    const accountListSelect = document.getElementById("account-list");
+  if (accountListSelect) {
+    let options = "";
+    state.lists.forEach((list) => {
+      options += `<option value="${list.id}">${list.name}</option>`;
+    });
+    accountListSelect.innerHTML = options;
+  }
 
     const importBtn = document.getElementById("import-session-btn");
     if (importBtn) {
@@ -1109,79 +1108,95 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
   };
-
-  const setupTDataImport = (proxyId) => {
-    const backBtn = document.getElementById("back-to-import-options-btn-tdata");
+  const handleSessionImport = async (proxyId) => {
+    if (!elements.sessionFileInput.files.length) {
+      showToast("Please select a session file", "error");
+      return;
+    }
+  
+    const sessionFile = elements.sessionFileInput.files[0];
+    const jsonFile = elements.jsonFileInput.files.length 
+      ? elements.jsonFileInput.files[0] 
+      : null;
+    const listId = elements.sessionAccountList.value;
+    const customName = elements.sessionAccountName.value.trim();
+  
+    elements.importSessionBtn.disabled = true;
+    elements.importSessionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+  
+    try {
+      const formData = new FormData();
+      formData.append("session_file", sessionFile);
+  
+      if (jsonFile) {
+        formData.append("json_file", jsonFile);
+      }
+  
+      formData.append("list_id", listId);
+      formData.append("proxy_id", proxyId);
+  
+      if (customName) {
+        formData.append("name", customName);
+      }
+  
+      const response = await fetch("/api/accounts/import-session", {
+        method: "POST",
+        body: formData,
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to import account");
+      }
+  
+      const result = await response.json();
+  
+      showToast("Account imported successfully", "success");
+      hideModal("session-import-modal");
+  
+      await loadAccounts(state.currentListId);
+      await loadStats(state.currentListId);
+    } catch (error) {
+      console.error("Error importing session:", error);
+      showToast("Error importing account: " + error.message, "error");
+    } finally {
+      elements.importSessionBtn.disabled = false;
+      elements.importSessionBtn.innerHTML = "Import Account";
+    }
+  };
+  const setupPhoneImport = (proxyId) => {
+    const backBtn = document.getElementById("back-to-import-options-btn-phone");
     if (backBtn) {
-      backBtn.addEventListener("click", () => {
-        hideModal("tdata-import-modal");
+      const newBackBtn = backBtn.cloneNode(true);
+      backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+  
+      newBackBtn.addEventListener("click", () => {
+        hideModal("phone-import-modal");
         showModal("account-import-modal");
       });
     }
-
-    const uploadStatus = document.getElementById("upload-status");
-    const progressBar = document.getElementById("upload-progress-bar");
-    const statusText = document.getElementById("upload-status-text");
-
-    if (uploadStatus) uploadStatus.style.display = "none";
-    if (progressBar) progressBar.style.width = "0%";
-    if (statusText) statusText.textContent = "";
-
-    const submitBtn = document.getElementById("import-tdata-submit-btn");
-    if (submitBtn) submitBtn.disabled = true;
-
-    const uploadArea = document.getElementById("tdata-upload-area");
-    const uploadInput = document.getElementById("tdata-input");
-
-    if (uploadArea) {
-      uploadArea.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        uploadArea.classList.add("dragover");
-      });
-
-      uploadArea.addEventListener("dragleave", (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove("dragover");
-      });
-
-      uploadArea.addEventListener("drop", (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove("dragover");
-
-        if (e.dataTransfer.files.length > 0) {
-          const file = e.dataTransfer.files[0];
-          if (file.name.endsWith(".zip")) {
-            handleTDataFileSelect(file);
-          } else {
-            showToast("Please select a .zip file containing TData", "error");
-          }
-        }
-      });
-
-      uploadArea.addEventListener("click", () => {
-        if (uploadInput) uploadInput.click();
-      });
-    }
-
-    if (uploadInput) {
-      uploadInput.addEventListener("change", (e) => {
-        if (e.target.files.length > 0) {
-          handleTDataFileSelect(e.target.files[0]);
-        }
-      });
-    }
-
-    const proxyDisplay = document.getElementById("tdata-selected-proxy");
+  
+    // Reset form state
+    document.getElementById("phone-import-form").reset();
+    document.getElementById("avatar-preview").innerHTML = '<i class="fas fa-user"></i>';
+    document.getElementById("avatar-url").value = "";
+    document.getElementById("verification-code-row").style.display = "none";
+    document.getElementById("phone-import-footer").style.display = "block";
+    document.getElementById("phone-verify-footer").style.display = "none";
+  
+    // Update the proxy display
+    const proxyDisplay = document.getElementById("phone-selected-proxy");
     if (proxyDisplay) {
-      const selectedProxy = state.proxies.find((p) => p.id === proxyId);
-      if (selectedProxy) {
-        proxyDisplay.textContent = `${selectedProxy.host}:${selectedProxy.port}`;
+      const proxy = state.proxies.find(p => p.id === proxyId);
+      if (proxy) {
+        proxyDisplay.textContent = `${proxy.host}:${proxy.port}`;
       } else {
         proxyDisplay.textContent = "None";
       }
     }
-
-    const accountListSelect = document.getElementById("tdata-account-list");
+  
+    // Setup account list dropdown
+    const accountListSelect = document.getElementById("account-list");
     if (accountListSelect) {
       let options = "";
       state.lists.forEach((list) => {
@@ -1189,82 +1204,46 @@ document.addEventListener("DOMContentLoaded", function () {
       });
       accountListSelect.innerHTML = options;
     }
-
-    const importBtn = document.getElementById("import-tdata-submit-btn");
-    if (importBtn) {
-      const newImportBtn = importBtn.cloneNode(true);
-      importBtn.parentNode.replaceChild(newImportBtn, importBtn);
-
-      newImportBtn.addEventListener("click", () => {
-        handleTDataImport(proxyId);
-      });
-    }
-  };
-
-  const setupPhoneImport = (proxyId) => {
-    const backBtn = document.getElementById("back-to-import-options-btn-phone");
-    if (backBtn) {
-      backBtn.addEventListener("click", () => {
-        hideModal("phone-import-modal");
-        showModal("account-import-modal");
-      });
-    }
-
-    document.getElementById("phone-import-form").reset();
-    document.getElementById("avatar-preview").innerHTML =
-      '<i class="fas fa-user"></i>';
-    document.getElementById("avatar-url").value = "";
-
-    document.getElementById("verification-code-row").style.display = "none";
-
-    document.getElementById("phone-import-footer").style.display = "block";
-    document.getElementById("phone-verify-footer").style.display = "none";
-
-    const proxyDisplay = document.getElementById("phone-selected-proxy");
-    if (proxyDisplay) {
-      const selectedProxy = state.proxies.find((p) => p.id === proxyId);
-      if (selectedProxy) {
-        proxyDisplay.textContent = `${selectedProxy.host}:${selectedProxy.port}`;
-      } else {
-        proxyDisplay.textContent = "None";
-      }
-    }
-
-    handleAvatarUpload();
-
+  
+    // Setup avatar upload
+    setupAvatarUpload();
+  
+    // Replace the request code button with a new one to prevent duplicate event listeners
     const requestCodeBtn = document.getElementById("request-code-btn");
     if (requestCodeBtn) {
       const newRequestCodeBtn = requestCodeBtn.cloneNode(true);
       requestCodeBtn.parentNode.replaceChild(newRequestCodeBtn, requestCodeBtn);
-
+      
       newRequestCodeBtn.addEventListener("click", () => {
         handleRequestCode(proxyId);
       });
     }
-
+  
+    // Replace the verify code button with a new one to prevent duplicate event listeners
     const verifyCodeBtn = document.getElementById("verify-code-btn");
     if (verifyCodeBtn) {
       const newVerifyCodeBtn = verifyCodeBtn.cloneNode(true);
       verifyCodeBtn.parentNode.replaceChild(newVerifyCodeBtn, verifyCodeBtn);
-
+      
       newVerifyCodeBtn.addEventListener("click", () => {
         handleVerifyCode(proxyId);
       });
     }
-
+  
+    // Replace the back to phone input button with a new one to prevent duplicate event listeners
     const backToPhoneBtn = document.getElementById("back-to-phone-input-btn");
     if (backToPhoneBtn) {
       const newBackToPhoneBtn = backToPhoneBtn.cloneNode(true);
       backToPhoneBtn.parentNode.replaceChild(newBackToPhoneBtn, backToPhoneBtn);
-
+      
       newBackToPhoneBtn.addEventListener("click", () => {
         document.getElementById("phone-import-footer").style.display = "block";
         document.getElementById("phone-verify-footer").style.display = "none";
-
         document.getElementById("verification-code-row").style.display = "none";
       });
     }
-  };
+  }
+  
   const handleSessionFileSelect = (file) => {
     const fileInfo = document.getElementById("session-file-info");
     if (fileInfo) {
@@ -1273,35 +1252,73 @@ document.addEventListener("DOMContentLoaded", function () {
       )})`;
     }
   };
-
-  const handleJsonFileSelect = (file) => {
-    const fileInfo = document.getElementById("json-file-info");
-    if (fileInfo) {
-      fileInfo.textContent = `Selected file: ${file.name} (${formatFileSize(
-        file.size
-      )})`;
+  const setupFileUpload = (fileInput, uploadArea, infoElement, fileExtension) => {
+    if (!fileInput || !uploadArea || !infoElement) return;
+  
+    fileInput.value = "";
+  
+    // Replace the input with a clone to remove any existing event listeners
+    const newFileInput = fileInput.cloneNode(true);
+    fileInput.parentNode.replaceChild(newFileInput, fileInput);
+    
+    newFileInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        if (file.name.endsWith(fileExtension)) {
+          infoElement.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
+          infoElement.style.display = "block";
+        } else {
+          showToast(`Please select a ${fileExtension} file`, "error");
+        }
+      }
+    });
+  
+    uploadArea.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      uploadArea.classList.add("dragover");
+    });
+  
+    uploadArea.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove("dragover");
+    });
+  
+    uploadArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove("dragover");
+  
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.name.endsWith(fileExtension)) {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          newFileInput.files = dataTransfer.files;
+  
+          infoElement.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
+          infoElement.style.display = "block";
+        } else {
+          showToast(`Please select a ${fileExtension} file`, "error");
+        }
+      }
+    });
+  
+    // Handle browse file button
+    const browseBtn = uploadArea.querySelector("label.btn");
+    if (browseBtn) {
+      browseBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        newFileInput.click();
+      });
     }
-  };
-
-  const handleTDataFileSelect = (file) => {
-    const statusText = document.getElementById("upload-status-text");
-    const uploadStatus = document.getElementById("upload-status");
-    const submitBtn = document.getElementById("import-tdata-submit-btn");
-
-    if (statusText) {
-      statusText.textContent = `Selected file: ${file.name} (${formatFileSize(
-        file.size
-      )})`;
-    }
-
-    if (uploadStatus) {
-      uploadStatus.style.display = "block";
-    }
-
-    if (submitBtn) {
-      submitBtn.disabled = false;
-    }
-  };
+  
+    // Click on upload area to select file
+    uploadArea.addEventListener("click", (e) => {
+      if (e.target === uploadArea || !e.target.closest('label')) {
+        newFileInput.click();
+      }
+    });
+  }
 
   const formatFileSize = (bytes) => {
     if (bytes < 1024) {
@@ -1312,30 +1329,83 @@ document.addEventListener("DOMContentLoaded", function () {
       return (bytes / (1024 * 1024)).toFixed(2) + " MB";
     }
   };
+  const setupAvatarUpload = () => {
+    const input = document.getElementById("avatar-input");
+    const preview = document.getElementById("avatar-preview");
+    const urlInput = document.getElementById("avatar-url");
+  
+    if (!input || !preview) return;
+  
+    input.value = "";
+  
+    // Replace the input with a clone to remove any existing event listeners
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+  
+    newInput.addEventListener("change", async (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+  
+        if (!file.type.startsWith("image/")) {
+          showToast("Please select an image file", "error");
+          return;
+        }
+  
+        try {
+          const formData = new FormData();
+          formData.append("avatar", file);
+  
+          const response = await fetch("/api/accounts/upload-avatar", {
+            method: "POST",
+            body: formData,
+          });
+  
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || "Failed to upload avatar");
+          }
+  
+          const result = await response.json();
+  
+          if (result.url) {
+            preview.innerHTML = `<img src="${result.url}" alt="Avatar">`;
+            urlInput.value = result.url;
+          } else {
+            throw new Error("No URL returned from server");
+          }
+        } catch (error) {
+          console.error("Error uploading avatar:", error);
+          showToast("Error uploading avatar: " + error.message, "error");
+        }
+      }
+    });
+  
+    // Handle avatar upload button click
+    const uploadBtn = preview.parentNode.querySelector(".avatar-upload-btn");
+    if (uploadBtn) {
+      uploadBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        newInput.click();
+      });
+    }
+  }
+    
   const handleTDataImport = async (proxyId) => {
-    const listId = document.getElementById("tdata-account-list").value;
-
-    const uploadInput = document.getElementById("tdata-input");
-    if (!uploadInput || !uploadInput.files || uploadInput.files.length === 0) {
+    const tdataFile = document.getElementById("tdata-input").files[0];
+    if (!tdataFile) {
       showToast("Please select a TData ZIP file", "error");
       return;
     }
-
-    const file = uploadInput.files[0];
-
-    const formData = new FormData();
-    formData.append("tdata_zip", file);
-    formData.append("target_list_id", listId);
-    formData.append("proxy_id", proxyId);
-
+  
+    const listId = document.getElementById("tdata-account-list").value;
+    const submitBtn = document.getElementById("import-tdata-submit-btn");
     const progressBar = document.getElementById("upload-progress-bar");
     const statusText = document.getElementById("upload-status-text");
-    const submitBtn = document.getElementById("import-tdata-submit-btn");
-
+  
     if (submitBtn) submitBtn.disabled = true;
-    if (statusText)
-      statusText.textContent = "Uploading and processing TData...";
-
+    if (statusText) statusText.textContent = "Uploading and processing TData...";
+  
+    // Simulate progress
     let progress = 0;
     const interval = setInterval(() => {
       progress += 5;
@@ -1344,112 +1414,175 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       if (progressBar) progressBar.style.width = `${progress}%`;
     }, 300);
-
+  
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
+      const formData = new FormData();
+      formData.append("tdata_zip", tdataFile);
+      formData.append("target_list_id", listId);
+      formData.append("proxy_id", proxyId);
+  
+      const response = await fetch("/api/accounts/import-tdata-zip", {
+        method: "POST",
+        body: formData,
+      });
+  
       clearInterval(interval);
-
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to import TData");
+      }
+  
+      const result = await response.json();
+  
       if (progressBar) progressBar.style.width = "100%";
       if (statusText) statusText.textContent = "TData imported successfully!";
-
-      showToast("TData import simulated for demo purposes", "success");
-
+  
       setTimeout(() => {
         hideModal("tdata-import-modal");
+        showToast("Account imported successfully", "success");
+        
+        loadAccounts(state.currentListId);
+        loadStats(state.currentListId);
       }, 1000);
     } catch (error) {
-      clearInterval(interval);
-
+      console.error("Error importing TData:", error);
+      
       if (progressBar) progressBar.style.width = "0%";
       if (statusText) statusText.textContent = `Error: ${error.message}`;
       if (submitBtn) submitBtn.disabled = false;
-
-      showToast("Error importing TData", "error");
+      
+      showToast(`Error: ${error.message}`, "error");
     }
   };
 
   const handleRequestCode = async (proxyId) => {
     const nameInput = document.getElementById("name");
     const phoneInput = document.getElementById("phone");
-
+  
     if (!nameInput.value.trim()) {
       showToast("Please enter a name", "error");
       nameInput.focus();
       return;
     }
-
+  
     if (!phoneInput.value.trim()) {
       showToast("Please enter a phone number", "error");
       phoneInput.focus();
       return;
     }
-
-    document.getElementById("verification-code-row").style.display = "block";
-    document.getElementById("phone-import-footer").style.display = "none";
-    document.getElementById("phone-verify-footer").style.display = "block";
-
-    showToast("Verification code requested (simulated)", "info");
-
-    setTimeout(() => {
-      const codeInput = document.getElementById("verification-code");
-      if (codeInput) codeInput.focus();
-    }, 100);
+  
+    const requestBtn = document.getElementById("request-code-btn");
+    if (requestBtn) {
+      requestBtn.disabled = true;
+      requestBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Requesting...';
+    }
+  
+    try {
+      const response = await fetch("/api/accounts/request-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: phoneInput.value.trim(),
+          proxy_id: proxyId,
+        }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to request verification code");
+      }
+  
+      const result = await response.json();
+  
+      if (result.success) {
+        document.getElementById("verification-code-row").style.display = "block";
+        document.getElementById("phone-import-footer").style.display = "none";
+        document.getElementById("phone-verify-footer").style.display = "block";
+  
+        showToast("Verification code sent to your Telegram app", "success");
+  
+        setTimeout(() => {
+          document.getElementById("verification-code").focus();
+        }, 100);
+      } else {
+        throw new Error(result.error || "Failed to request verification code");
+      }
+    } catch (error) {
+      console.error("Error requesting code:", error);
+      showToast("Error: " + error.message, "error");
+    } finally {
+      if (requestBtn) {
+        requestBtn.disabled = false;
+        requestBtn.innerHTML = "Request Code";
+      }
+    }
   };
 
   const handleVerifyCode = async (proxyId) => {
     const codeInput = document.getElementById("verification-code");
-
+  
     if (!codeInput.value.trim()) {
       showToast("Please enter the verification code", "error");
       codeInput.focus();
       return;
     }
-
-    const nameInput = document.getElementById("name");
-    const phoneInput = document.getElementById("phone");
-    const usernameInput = document.getElementById("username");
-    const avatarUrlInput = document.getElementById("avatar-url");
-    const listIdSelect = document.getElementById("account-list");
-    const limitInvitesInput = document.getElementById("limit-invites");
-    const limitMessagesInput = document.getElementById("limit-messages");
-
-    const accountData = {
-      name: nameInput.value.trim(),
-      phone: phoneInput.value.trim(),
-      username: usernameInput.value.trim(),
-      avatar: avatarUrlInput.value,
-      list_id: listIdSelect.value,
-      proxy_id: proxyId,
-      limits: {
-        daily_invites: parseInt(limitInvitesInput.value) || 30,
-        daily_messages: parseInt(limitMessagesInput.value) || 50,
-      },
-    };
-
+  
     const verifyBtn = document.getElementById("verify-code-btn");
-    verifyBtn.disabled = true;
-    verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
-
+    if (verifyBtn) {
+      verifyBtn.disabled = true;
+      verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+    }
+  
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newAccount = await api.createAccount(accountData);
-
-      if (newAccount) {
-        showToast("Account created successfully", "success");
+      const accountData = {
+        name: document.getElementById("name").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        username: document.getElementById("username").value.trim(),
+        avatar: document.getElementById("avatar-url").value,
+        list_id: document.getElementById("account-list").value,
+        proxy_id: proxyId,
+        code: codeInput.value.trim(),
+        limits: {
+          daily_invites: parseInt(document.getElementById("limit-invites").value) || 30,
+          daily_messages: parseInt(document.getElementById("limit-messages").value) || 50,
+        },
+      };
+  
+      const response = await fetch("/api/accounts/verify-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(accountData),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to verify code");
+      }
+  
+      const result = await response.json();
+  
+      if (result.success) {
+        showToast("Account verified and added successfully", "success");
         hideModal("phone-import-modal");
-
+  
         await loadAccounts(state.currentListId);
         await loadStats(state.currentListId);
       } else {
-        showToast("Error creating account", "error");
+        throw new Error(result.error || "Failed to verify account");
       }
     } catch (error) {
-      showToast(`Error verifying code: ${error.message}`, "error");
+      console.error("Error verifying code:", error);
+      showToast("Error: " + error.message, "error");
     } finally {
-      verifyBtn.disabled = false;
-      verifyBtn.innerHTML = "Verify & Add Account";
+      if (verifyBtn) {
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = "Verify & Add Account";
+      }
     }
   };
   const handleAddListClick = () => {
@@ -1718,196 +1851,129 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   };
 
-  const handleImportTData = () => {
-    showModal("import-tdata-modal");
-
+  const setupTDataImport = (proxyId) => {
+    const backBtn = document.getElementById("back-to-import-options-btn-tdata");
+    if (backBtn) {
+      const newBackBtn = backBtn.cloneNode(true);
+      backBtn.parentNode.replaceChild(newBackBtn, backBtn);
+  
+      newBackBtn.addEventListener("click", () => {
+        hideModal("tdata-import-modal");
+        showModal("account-import-modal");
+      });
+    }
+  
     const uploadArea = document.getElementById("tdata-upload-area");
     const uploadInput = document.getElementById("tdata-input");
-    const submitBtn = document.getElementById("import-tdata-submit-btn");
     const uploadStatus = document.getElementById("upload-status");
     const progressBar = document.getElementById("upload-progress-bar");
     const statusText = document.getElementById("upload-status-text");
-    const browseButton = document.querySelector("#tdata-upload-area label");
-    const tdataTargetList = document.getElementById("tdata-target-list");
-
-    tdataTargetList.innerHTML = "";
-    state.lists.forEach((list) => {
-      const option = document.createElement("option");
-      option.value = list.id;
-      option.textContent = list.name;
-      tdataTargetList.appendChild(option);
-    });
-
-    uploadStatus.style.display = "none";
-    statusText.textContent = "";
-    submitBtn.disabled = true;
-
-    let selectedFile = null;
-
-    function setupDragAndDrop() {
-      uploadInput.onchange = function (e) {
+    const submitBtn = document.getElementById("import-tdata-submit-btn");
+  
+    // Reset upload state
+    if (uploadStatus) uploadStatus.style.display = "none";
+    if (progressBar) progressBar.style.width = "0%";
+    if (statusText) statusText.textContent = "";
+    if (submitBtn) submitBtn.disabled = true;
+    if (uploadInput) uploadInput.value = "";
+  
+    // Set up drag and drop for TData ZIP file
+    if (uploadArea && uploadInput) {
+      const browseBtn = uploadArea.querySelector("label.btn");
+      if (browseBtn) {
+        browseBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          uploadInput.click();
+        });
+      }
+  
+      uploadInput.addEventListener("change", (e) => {
         if (e.target.files && e.target.files.length > 0) {
           const file = e.target.files[0];
-
           if (file.name.endsWith(".zip")) {
-            selectedFile = file;
-            uploadStatus.style.display = "block";
-            statusText.textContent = `Selected: ${file.name}`;
-            submitBtn.disabled = false;
-
-            document.getElementById("tdata-list-selection").style.display =
-              "block";
+            if (statusText) {
+              statusText.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
+            }
+            if (uploadStatus) uploadStatus.style.display = "block";
+            if (submitBtn) submitBtn.disabled = false;
           } else {
             showToast("Please select a ZIP file containing TData", "error");
           }
         }
-      };
-
-      browseButton.onclick = function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadInput.click();
-      };
-
-      uploadArea.ondragover = function (e) {
+      });
+  
+      uploadArea.addEventListener("dragover", (e) => {
         e.preventDefault();
         uploadArea.classList.add("dragover");
-      };
-
-      uploadArea.ondragleave = function (e) {
+      });
+  
+      uploadArea.addEventListener("dragleave", (e) => {
         e.preventDefault();
         uploadArea.classList.remove("dragover");
-      };
-
-      uploadArea.ondragend = function (e) {
+      });
+  
+      uploadArea.addEventListener("drop", (e) => {
         e.preventDefault();
         uploadArea.classList.remove("dragover");
-      };
-
-      uploadArea.ondrop = function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadArea.classList.remove("dragover");
-
+  
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
           const file = e.dataTransfer.files[0];
-
           if (file.name.endsWith(".zip")) {
-            selectedFile = file;
-            uploadStatus.style.display = "block";
-            statusText.textContent = `Selected: ${file.name}`;
-            submitBtn.disabled = false;
-
-            document.getElementById("tdata-list-selection").style.display =
-              "block";
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            uploadInput.files = dataTransfer.files;
+  
+            if (statusText) {
+              statusText.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
+            }
+            if (uploadStatus) uploadStatus.style.display = "block";
+            if (submitBtn) submitBtn.disabled = false;
           } else {
             showToast("Please select a ZIP file containing TData", "error");
           }
         }
-      };
+      });
+  
+      uploadArea.addEventListener("click", (e) => {
+        if (e.target === uploadArea || !e.target.closest("label")) {
+          uploadInput.click();
+        }
+      });
     }
-
-    setupDragAndDrop();
-
-    submitBtn.onclick = async function () {
-      if (!selectedFile) return;
-
-      progressBar.style.width = "0%";
-      statusText.textContent = "Importing...";
-      submitBtn.disabled = true;
-
-      const targetListId = tdataTargetList.value;
-
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 5;
-        if (progress > 90) {
-          clearInterval(interval);
-        }
-        progressBar.style.width = `${progress}%`;
-      }, 300);
-
-      const formData = new FormData();
-      formData.append("tdata_zip", selectedFile);
-      formData.append("target_list_id", targetListId);
-
-      console.log("Starting import process with file:", selectedFile.name);
-      console.log("Target list ID:", targetListId);
-
-      try {
-        console.log("Sending request to /api/accounts/import-tdata-zip");
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-        const response = await fetch("/api/accounts/import-tdata-zip", {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        console.log(
-          "Server response received:",
-          response.status,
-          response.statusText
-        );
-
-        if (!response.ok) {
-          console.error("Server returned error status:", response.status);
-          let errorText = await response.text();
-          console.error("Error details:", errorText);
-          throw new Error(
-            `Server returned ${response.status}: ${
-              errorText || response.statusText
-            }`
-          );
-        }
-
-        let result = await response.json();
-        console.log("Server response parsed:", result);
-
-        clearInterval(interval);
-
-        if (result && result.success) {
-          console.log("Import successful!");
-          progressBar.style.width = "100%";
-          statusText.textContent = "Import successful!";
-
-          setTimeout(() => {
-            hideModal("import-tdata-modal");
-            showToast("Account imported successfully", "success");
-
-            loadAccounts(state.currentListId);
-            loadStats(state.currentListId);
-          }, 1000);
-        } else {
-          console.error("Import failed:", result?.error || "No error message");
-          progressBar.style.width = "0%";
-          statusText.textContent = `Error: ${
-            result?.error || "Failed to import account"
-          }`;
-          submitBtn.disabled = false;
-        }
-      } catch (error) {
-        console.error("Exception during import:", error);
-        clearInterval(interval);
-        progressBar.style.width = "0%";
-
-        if (error.name === "AbortError") {
-          statusText.textContent =
-            "Error: Request timed out. The server may be busy processing the TData.";
-        } else {
-          statusText.textContent = `Error: ${
-            error.message || "Failed to import account"
-          }`;
-        }
-
-        submitBtn.disabled = false;
+  
+    // Update the proxy display
+    const proxyDisplay = document.getElementById("tdata-selected-proxy");
+    if (proxyDisplay) {
+      const proxy = state.proxies.find(p => p.id === proxyId);
+      if (proxy) {
+        proxyDisplay.textContent = `${proxy.host}:${proxy.port}`;
+      } else {
+        proxyDisplay.textContent = "None";
       }
-    };
-  };
+    }
+  
+    // Setup account list dropdown
+    const accountListSelect = document.getElementById("tdata-account-list");
+    if (accountListSelect) {
+      let options = "";
+      state.lists.forEach((list) => {
+        options += `<option value="${list.id}">${list.name}</option>`;
+      });
+      accountListSelect.innerHTML = options;
+    }
+  
+    // Replace the import button with a new one to prevent duplicate event listeners
+    if (submitBtn) {
+      const newImportBtn = submitBtn.cloneNode(true);
+      submitBtn.parentNode.replaceChild(newImportBtn, submitBtn);
+      
+      newImportBtn.disabled = true;
+      newImportBtn.addEventListener("click", () => {
+        handleTDataImport(proxyId);
+      });
+    }
+  }
 
   const updateSelectionUI = () => {
     const selectedCount = state.selectedAccounts.size;

@@ -860,27 +860,6 @@ document.addEventListener("DOMContentLoaded", function () {
         proxyFileInput.click();
       });
     }
-
-    document
-      .getElementById("sidebar-menu")
-      .addEventListener("click", (event) => {
-        const item = event.target.closest("li");
-        if (!item) return;
-
-        const page = item.dataset.page;
-
-        switch (page) {
-          case "accounts":
-            window.location.href = "/index.html";
-            break;
-          case "parser":
-            window.location.href = "/group-parser.html";
-            break;
-          case "broadcaster":
-            window.location.href = "/broadcaster.html";
-            break;
-        }
-      });
   };
 
   const loadProxies = async () => {

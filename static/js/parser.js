@@ -44,7 +44,6 @@ document.addEventListener("DOMContentLoaded", function () {
     saveAllBtn: document.getElementById("save-all-btn"),
     savedListFilter: document.getElementById("saved-list-filter"),
 
-    sidebarMenu: document.getElementById("sidebar-menu"),
   };
 
   const api = {
@@ -928,20 +927,6 @@ document.addEventListener("DOMContentLoaded", function () {
     renderSavedGroups();
   };
 
-  const handleSidebarNavigation = (event) => {
-    const item = event.target.closest("li");
-    if (!item) return;
-
-    const page = item.dataset.page;
-
-    if (page === "accounts") {
-      window.location.href = "/index.html";
-    }
-    if (page === "broadcaster") {
-      window.location.href = "/broadcaster.html";
-    }
-  };
-
   const handleGroupListClick = async (event) => {
     const listItem = event.target.closest("li");
     if (!listItem) return;
@@ -1547,10 +1532,6 @@ document.addEventListener("DOMContentLoaded", function () {
         "change",
         handleSavedListFilterChange
       );
-    }
-
-    if (elements.sidebarMenu) {
-      elements.sidebarMenu.addEventListener("click", handleSidebarNavigation);
     }
 
     if (elements.addGroupListBtn) {

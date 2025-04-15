@@ -63,8 +63,6 @@ document.addEventListener("DOMContentLoaded", function () {
     exportLogsBtn: document.getElementById("export-logs-btn"),
 
     modalContainer: document.getElementById("modal-container"),
-
-    sidebarMenu: document.getElementById("sidebar-menu"),
   };
 
   const api = {
@@ -1262,19 +1260,6 @@ document.addEventListener("DOMContentLoaded", function () {
     showToast("Logs exported successfully", "success");
   };
 
-  const handleSidebarNavigation = (event) => {
-    const item = event.target.closest("li");
-    if (!item) return;
-
-    const page = item.dataset.page;
-
-    if (page === "accounts") {
-      window.location.href = "/index.html";
-    } else if (page === "parser") {
-      window.location.href = "/group-parser.html";
-    }
-  };
-
   const validateBroadcastInputs = (isTest = false) => {
     if (state.selectedAccounts.size === 0) {
       showToast("Please select at least one account", "error");
@@ -1518,8 +1503,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     elements.clearLogsBtn.addEventListener("click", handleClearLogs);
     elements.exportLogsBtn.addEventListener("click", handleExportLogs);
-
-    elements.sidebarMenu.addEventListener("click", handleSidebarNavigation);
 
     document.querySelectorAll("[data-close-modal]").forEach((button) => {
       button.addEventListener("click", () => {
