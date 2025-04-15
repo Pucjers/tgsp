@@ -6,8 +6,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error("Sidebar menu not found!");
         return;
     }
-    
-    // Define page URLs
+
     const pageUrls = {
         'accounts': '/index.html',
         'proxies': '/proxies.html',
@@ -15,7 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
         'broadcaster': '/broadcaster.html'
     };
     
-    // Function to handle navigation
     function handleNavigation(event) {
         const item = event.target.closest('li');
         if (!item) return;
@@ -27,12 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = pageUrls[page];
         }
     }
-    
-    // Remove any existing click listeners by cloning and replacing
     const newSidebarMenu = sidebarMenu.cloneNode(true);
     sidebarMenu.parentNode.replaceChild(newSidebarMenu, sidebarMenu);
     
-    // Add click event listener to the menu
     newSidebarMenu.addEventListener('click', handleNavigation);
     
     console.log("Sidebar navigation initialized");

@@ -7,304 +7,6 @@
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/dark-theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
-    <style>
-        /* Additional styles for proxy-related features */
-        .proxy-warning {
-            background-color: rgba(241, 196, 15, 0.1);
-            border-radius: var(--border-radius);
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .proxy-warning i {
-            font-size: 24px;
-            color: #f1c40f;
-        }
-        
-        .proxy-warning-content {
-            flex: 1;
-        }
-        
-        .proxy-warning h3 {
-            margin-bottom: 5px;
-            font-size: 16px;
-        }
-        
-        .proxy-warning p {
-            margin: 0;
-            color: var(--text-light);
-        }
-        
-        .proxy-selector {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .proxy-status {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-top: 5px;
-            font-size: 13px;
-        }
-        
-        .proxy-status.online {
-            color: var(--success-color);
-        }
-        
-        .proxy-status.offline {
-            color: var(--danger-color);
-        }
-        
-        .proxy-status.untested {
-            color: var(--text-light);
-        }
-        
-        .proxy-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            background-color: rgba(62, 142, 208, 0.1);
-            color: var(--primary-color);
-        }
-        
-        .import-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 10px;
-        }
-        
-        .import-option {
-            flex: 1;
-            min-width: 200px;
-            background-color: white;
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-            padding: 15px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .import-option:hover {
-            border-color: var(--primary-color);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        .import-option.selected {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(62, 142, 208, 0.2);
-        }
-        
-        .import-option-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .import-option-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: rgba(62, 142, 208, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary-color);
-            font-size: 18px;
-        }
-        
-        .import-option-title {
-            font-weight: 500;
-            flex: 1;
-        }
-        
-        .import-option-description {
-            font-size: 13px;
-            color: var(--text-light);
-            margin-bottom: 0;
-        }
-        
-        .account-card {
-            background-color: white;
-            border-radius: var(--border-radius);
-            padding: 15px;
-            margin-bottom: 10px;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-        }
-        
-        .account-card:hover {
-            box-shadow: var(--shadow-md);
-        }
-        
-        .account-card-header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .account-avatar-large {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        
-        .account-avatar-large img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .account-card-info {
-            flex: 1;
-        }
-        
-        .account-card-name {
-            font-weight: 600;
-            font-size: 16px;
-            margin-bottom: 3px;
-        }
-        
-        .account-card-username,
-        .account-card-phone {
-            font-size: 14px;
-            color: var(--text-light);
-        }
-        
-        .account-card-status {
-            margin-left: auto;
-        }
-        
-        .account-card-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-top: 15px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .account-card-proxy {
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .account-card-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        /* Tabs for import options */
-        .import-tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .import-tab {
-            padding: 10px 20px;
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            transition: var(--transition);
-            font-weight: 500;
-        }
-        
-        .import-tab:hover {
-            color: var(--primary-color);
-        }
-        
-        .import-tab.active {
-            color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-        }
-        
-        .import-content {
-            display: none;
-        }
-        
-        .import-content.active {
-            display: block;
-        }
-        
-        /* Session file upload */
-        .session-upload {
-            margin-top: 15px;
-        }
-        
-        .session-upload-area {
-            border: 2px dashed var(--border-color);
-            border-radius: var(--border-radius);
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 15px;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        
-        .session-upload-area:hover {
-            border-color: var(--primary-color);
-            background-color: rgba(62, 142, 208, 0.03);
-        }
-        
-        .session-upload-area.dragover {
-            border-color: var(--primary-color);
-            background-color: rgba(62, 142, 208, 0.05);
-        }
-        
-        .session-upload-area i {
-            font-size: 36px;
-            color: var(--text-lighter);
-            margin-bottom: 10px;
-        }
-        
-        /* Proxy column in account table */
-        .proxy-column {
-            width: 140px;
-        }
-        
-        .account-proxy {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .proxy-select-wrapper {
-            position: relative;
-            width: 100%;
-        }
-        
-        .proxy-select-wrapper select {
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            padding-right: 30px;
-            width: 100%;
-        }
-        
-        .proxy-select-wrapper:after {
-            content: '\f107';
-            font-family: 'Font Awesome 6 Free';
-            font-weight: 900;
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-light);
-            pointer-events: none;
-        }
-    </style>
 </head>
 <body>
     <div class="app-container">
@@ -401,7 +103,7 @@
                     <i class="fas fa-exclamation-triangle"></i>
                     <div class="proxy-warning-content">
                         <h3>No Proxies Available</h3>
-                        <p>You need to add at least one proxy before you can add Telegram accounts. <a href="/proxies.html">Go to Proxy Management</a></p>
+                        <p>You need to add at least one proxy before you can add Telegram accounts.</p>
                     </div>
                     <button class="btn btn-primary" id="add-proxy-from-warning-btn">
                         <i class="fas fa-plus"></i> Add Proxy
@@ -848,7 +550,14 @@
             </div>
         </div>
     </div>
-    
+    <div id="proxy-warning-popup" class="warning-overlay" style="display: none;">
+        <div class="proxy-warning-popup-content">
+          <h3>No Proxies Available</h3>
+          <p>You need to add at least one proxy before you can add Telegram accounts.</p>
+          <button class="warning-confirm-btn" id="warning-confirm-btn">OK</button>
+        </div>
+      </div>
+      
     <!-- SVG Assets -->
     <svg style="display: none;">
         <symbol id="logo" viewBox="0 0 24 24">
@@ -857,10 +566,6 @@
     </svg>
     <script src="/js/scripts.js"></script>
     <script src="/js/theme-toggle.js"></script>
-    <script src="/js/accountModalFix.js"></script>
-    <script src="/js/modalButtonsFix.js"></script>
     <script src="/js/sidebar-navigation.js"></script>
-    <script src="/js/upload-fix.js"></script>
-    <script src="/js/file-upload.js"></script>
 </body>
 </html>

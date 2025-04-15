@@ -14,7 +14,15 @@ from app.utils.file_utils import (
     save_accounts, 
     get_account_lists,
     get_accounts_meta,
-    save_accounts_meta
+    save_accounts_meta,
+)
+from app.api.accounts.services import( 
+    get_filtered_accounts,
+    update_existing_account,
+    delete_account_by_id,
+    bulk_delete_accounts,
+    move_accounts,
+    check_accounts
 )
 
 # Import the necessary Telethon components
@@ -38,6 +46,12 @@ active_verifications = {}
 
 # Create directory for session files
 os.makedirs('saved_sessions', exist_ok=True)
+
+@accounts_bp.route('', methods=['GET'])
+def get_accounts():
+    """Get all accounts, optionally filtered by list_id"""
+    list_id = request.args.get('list_id', 'all')
+    return jsonify(get_filtered_accounts(list_id))
 
 @accounts_bp.route('/import-session', methods=['POST'])
 def import_session():
@@ -227,6 +241,17 @@ def import_session():
         current_app.logger.error(f"Error in import_session: {str(e)}")
         return jsonify({"error": f"Error importing session: {str(e)}"}), 500
 
+@accounts_bp.route('/<account_id>', methods=['PUT'])
+def update_account(account_id):
+    """Update an existing account"""
+    data = request.json
+    
+    updated_account = update_existing_account(account_id, data)
+    
+    if not updated_account:
+        return jsonify({"error": "Account not found"}), 404
+    
+    return jsonify(updated_account)
 
 @accounts_bp.route('/request-code', methods=['POST'])
 def request_verification_code():
@@ -545,7 +570,68 @@ async def _get_user_info_from_session(client):
         except:
             pass
         return None
+@accounts_bp.route('/<account_id>', methods=['DELETE'])
+def delete_account(account_id):
+    """Delete an account by ID"""
+    result = delete_account_by_id(account_id)
+    
+    if not result:
+        return jsonify({"error": "Account not found"}), 404
+    
+    return jsonify({"message": "Account deleted successfully"})
 
+
+@accounts_bp.route('/bulk-delete', methods=['POST'])
+def bulk_delete():
+    """Delete multiple accounts by their IDs"""
+    data = request.json
+    account_ids = data.get('account_ids', [])
+    
+    if not account_ids:
+        return jsonify({"error": "No account IDs provided"}), 400
+    
+    result = bulk_delete_accounts(account_ids)
+    
+    if result.get('deleted_count', 0) == 0:
+        return jsonify({"error": "No accounts found with the provided IDs"}), 404
+    
+    return jsonify({
+        "message": f"Successfully deleted {result['deleted_count']} accounts",
+        "deleted_count": result['deleted_count']
+    })
+@accounts_bp.route('/move', methods=['POST'])
+def move():
+    """Move accounts between lists"""
+    data = request.json
+    account_ids = data.get('account_ids', [])
+    target_list_id = data.get('target_list_id')
+    action = data.get('action', 'move')  # 'add', 'remove', or 'move'
+    
+    if not account_ids:
+        return jsonify({"error": "No account IDs provided"}), 400
+    
+    if not target_list_id:
+        return jsonify({"error": "Target list ID is required"}), 400
+    
+    result = move_accounts(account_ids, target_list_id, action)
+    
+    return jsonify({
+        "message": f"Successfully updated {result['updated_count']} accounts"
+    })
+
+
+@accounts_bp.route('/check', methods=['POST'])
+def check():
+    """Check the status of accounts with Telegram"""
+    data = request.json
+    account_ids = data.get('account_ids', [])
+    
+    if not account_ids:
+        return jsonify({"error": "No account IDs provided"}), 400
+    
+    checked_accounts = check_accounts(account_ids)
+    
+    return jsonify(checked_accounts)
 
 async def _request_code(client, phone_number):
     """Send verification code to a phone number"""

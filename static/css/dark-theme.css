@@ -383,3 +383,31 @@
 [data-theme="dark"] .selection-item-details {
     color: var(--text-light);
 }
+
+[data-theme="dark"] .warning-overlay {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="dark"] .proxy-warning-popup-content {
+    background: var(--bg-white);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+}
+
+[data-theme="dark"] .proxy-warning-popup-content h3 {
+    color: #e74c3c; /* Keeping red for warning emphasis */
+}
+
+[data-theme="dark"] .proxy-warning-popup-content p {
+    color: var(--text-light);
+}
+
+[data-theme="dark"] .warning-confirm-btn {
+    background: #e74c3c;
+    color: var(--text-color);
+    transition: background 0.2s ease;
+}
+
+[data-theme="dark"] .warning-confirm-btn:hover {
+    background: #c0392b;
+}

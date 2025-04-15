@@ -23,9 +23,15 @@ document.addEventListener("DOMContentLoaded", function () {
     modalContainer: document.getElementById("modal-container"),
     addAccountBtn: document.getElementById("add-account-btn"),
     emptyAddBtn: document.getElementById("empty-add-btn"),
-    importTdataBtn: document.getElementById("import-tdata-btn"),
     addListBtn: document.getElementById("add-list-btn"),
+    closeWarningBtn: document.getElementById("warning-confirm-btn"),
   };
+  const pageUrls = {
+    'accounts': '/index.html',
+    'proxies': '/proxies.html',
+    'parser': '/group-parser.html',
+    'broadcaster': '/broadcaster.html'
+};
 
   const api = {
     async getAccounts(listId = "all") {
@@ -914,10 +920,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateSelectionUI();
   };
-
+  function showWarning() {
+    document.getElementById('proxy-warning-popup').style.display = 'flex';
+  }
+  function closeWarning() {
+    document.getElementById('proxy-warning-popup').style.display = 'none';
+  }
   const handleAddAccountClick = () => {
     if (state.proxies.length === 0) {
-      showQuickAddProxyModal();
+      showWarning();
       return;
     }
 
@@ -1638,28 +1649,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   };
-  function setupSidebarNavigation() {
-    const sidebarMenu = document.getElementById("sidebar-menu");
-
-    if (sidebarMenu) {
-      sidebarMenu.addEventListener("click", (event) => {
-        const item = event.target.closest("li");
-        if (!item) return;
-
-        const page = item.dataset.page;
-
-        if (page === "parser") {
-          window.location.href = "/group-parser.html";
-        }
-        if (page === "broadcaster") {
-          window.location.href = "/broadcaster.html";
-        }
-        if (page === "accounts") {
-          window.location.href = "/accounts.html";
-        }
-      });
-    }
-  }
   const handleCheckSelected = async () => {
     if (state.selectedAccounts.size === 0) return;
 
@@ -2039,6 +2028,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     elements.deleteSelectedBtn.addEventListener("click", handleDeleteSelected);
 
+    elements.closeWarningBtn.addEventListener("click", closeWarning);
+
     document
       .getElementById("save-list-btn")
       .addEventListener("click", handleSaveList);
@@ -2139,10 +2130,13 @@ document.addEventListener("DOMContentLoaded", function () {
           "add-proxy-from-warning-btn"
         );
         if (addProxyBtn) {
-          addProxyBtn.addEventListener("click", showQuickAddProxyModal);
+          addProxyBtn.addEventListener("click", () => {
+            window.location.href = 'proxies.html';
+          });
         }
       } else {
         proxyWarning.style.display = "none";
+        document.getElementById('proxy-count').textContent = state.proxies.length;  
       }
     }
 
@@ -2152,7 +2146,6 @@ document.addEventListener("DOMContentLoaded", function () {
     updateProxyDropdowns();
 
     attachGlobalEventListeners();
-    setupSidebarNavigation();
   };
 
   init();

@@ -1,10 +1,3 @@
-/**
- * Theme Toggle functionality
- * - Adds a theme toggle button to the sidebar footer
- * - Switches between light and dark themes
- * - Saves theme preference to localStorage
- */
-
 document.addEventListener('DOMContentLoaded', function() {
     // Initialization function
     const initThemeToggle = () => {
@@ -17,17 +10,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Attach event listeners
         attachThemeToggleEvents();
     };
-    
-    // Create the theme toggle button and add it to the sidebar footer
+
     const createThemeToggleButton = () => {
         const sidebarFooter = document.querySelector('.sidebar-footer');
         
         if (!sidebarFooter) return;
         
-        // Check if the button already exists - this prevents duplication
+        // prevent duplication
         if (document.getElementById('theme-toggle-btn')) return;
         
-        // Create button element
+        // else create button element
         const themeToggleBtn = document.createElement('button');
         themeToggleBtn.id = 'theme-toggle-btn';
         themeToggleBtn.className = 'theme-toggle btn btn-icon';
@@ -37,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <i class="fas fa-moon dark-icon"></i>
         `;
         
-        // Add button to sidebar footer before the help button
+        // add before help button
         const helpBtn = document.getElementById('help-btn');
         if (helpBtn) {
             sidebarFooter.insertBefore(themeToggleBtn, helpBtn);
@@ -48,12 +40,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Get the saved theme from localStorage
     const getSavedTheme = () => {
-        return localStorage.getItem('tgninja-theme') || 'light';
+        return localStorage.getItem('tgsp-theme') || 'light';
     };
     
     // Save the current theme to localStorage
     const saveTheme = (theme) => {
-        localStorage.setItem('tgninja-theme', theme);
+        localStorage.setItem('tgsp-theme', theme);
     };
     
     // Apply the given theme to the document
@@ -79,6 +71,5 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // Initialize the theme toggle
     initThemeToggle();
 });
