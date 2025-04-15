@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const state = {
         accounts: [],
         lists: [],
+        proxies: [],
         currentListId: 'all',
         selectedAccounts: new Set(),
     };
@@ -46,7 +47,68 @@ document.addEventListener('DOMContentLoaded', function() {
                 return [];
             }
         },
-
+        async getProxies() {
+            try {
+                const response = await fetch('/api/proxies');
+                if (!response.ok) throw new Error('Failed to fetch proxies');
+                return await response.json();
+            } catch (error) {
+                console.error('Error fetching proxies:', error);
+                showToast('Error loading proxies', 'error');
+                return [];
+            }
+        },
+        
+        async createProxy(proxyData) {
+            try {
+                const response = await fetch('/api/proxies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(proxyData)
+                });
+                if (!response.ok) throw new Error('Failed to create proxy');
+                return await response.json();
+            } catch (error) {
+                console.error('Error creating proxy:', error);
+                showToast('Error creating proxy', 'error');
+                return null;
+            }
+        },
+        
+        async testProxy(proxyData) {
+            try {
+                const response = await fetch('/api/proxies/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(proxyData)
+                });
+                if (!response.ok) throw new Error('Failed to test proxy');
+                return await response.json();
+            } catch (error) {
+                console.error('Error testing proxy:', error);
+                showToast('Error testing proxy', 'error');
+                return {
+                    success: false,
+                    error: error.message
+                };
+            }
+        },
+        
+        async updateAccountProxy(accountId, proxyId) {
+            try {
+                const response = await fetch(`/api/accounts/${accountId}/proxy`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proxy_id: proxyId })
+                });
+                if (!response.ok) throw new Error('Failed to update account proxy');
+                return await response.json();
+            } catch (error) {
+                console.error('Error updating account proxy:', error);
+                showToast('Error updating proxy association', 'error');
+                return null;
+            }
+        },
         async getAccount(accountId) {
             try {
                 const response = await fetch(`/api/accounts/${accountId}`);
@@ -264,7 +326,221 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     };
-
+    const updateProxyDropdowns = () => {
+        // Update proxy dropdown in add account modal
+        const accountProxy = document.getElementById('account-proxy');
+        if (accountProxy) {
+            let options = '<option value="">-- Select Proxy --</option>';
+            
+            state.proxies.forEach(proxy => {
+                // Count how many accounts are using this proxy
+                const accountCount = proxy.accounts ? proxy.accounts.length : 0;
+                const isFull = accountCount >= 3;
+                
+                options += `<option value="${proxy.id}" ${isFull ? 'disabled' : ''}>
+                    ${proxy.host}:${proxy.port} (${accountCount}/3)
+                </option>`;
+            });
+            
+            accountProxy.innerHTML = options;
+            
+            // Disable the save button if no proxies are available
+            const saveAccountBtn = document.getElementById('save-account-btn');
+            if (saveAccountBtn) {
+                saveAccountBtn.disabled = state.proxies.length === 0;
+            }
+        }
+        
+        // Also update proxy displays in TData, Session, and Phone import modals
+        ['tdata-selected-proxy', 'session-selected-proxy', 'phone-selected-proxy'].forEach(id => {
+            const proxyDisplay = document.getElementById(id);
+            if (proxyDisplay && accountProxy) {
+                const selectedProxy = accountProxy.options[accountProxy.selectedIndex];
+                if (selectedProxy && selectedProxy.value) {
+                    proxyDisplay.textContent = selectedProxy.textContent.trim();
+                } else {
+                    proxyDisplay.textContent = 'None';
+                }
+            }
+        });
+    };
+    
+    const showQuickAddProxyModal = () => {
+        const modal = document.getElementById('quick-add-proxy-modal');
+        if (!modal) return;
+        
+        // Reset the form
+        const form = document.getElementById('quick-add-proxy-form');
+        if (form) form.reset();
+        
+        // Show the modal
+        showModal('quick-add-proxy-modal');
+        
+        // Setup save button
+        const saveBtn = document.getElementById('save-quick-proxy-btn');
+        if (saveBtn) {
+            // Clone to remove existing event listeners
+            const newSaveBtn = saveBtn.cloneNode(true);
+            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+            
+            newSaveBtn.addEventListener('click', handleQuickSaveProxy);
+        }
+    };
+    
+    const handleQuickSaveProxy = async () => {
+        const form = document.getElementById('quick-add-proxy-form');
+        if (!form) return;
+        
+        // Get form data
+        const type = document.getElementById('quick-proxy-type').value;
+        const host = document.getElementById('quick-proxy-host').value.trim();
+        const port = document.getElementById('quick-proxy-port').value.trim();
+        const username = document.getElementById('quick-proxy-username').value.trim();
+        const password = document.getElementById('quick-proxy-password').value.trim();
+        
+        // Validate
+        if (!host) {
+            showToast('Please enter a proxy host', 'error');
+            return;
+        }
+        
+        if (!port) {
+            showToast('Please enter a proxy port', 'error');
+            return;
+        }
+        
+        // Create proxy object
+        const proxyData = {
+            type, 
+            host, 
+            port: parseInt(port),
+            username,
+            password
+        };
+        
+        // Disable button and show loading
+        const saveBtn = document.getElementById('save-quick-proxy-btn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        }
+        
+        // Test the proxy first
+        try {
+            const testResult = await api.testProxy(proxyData);
+            
+            if (testResult.success) {
+                // Proxy is working, save it
+                const newProxy = await api.createProxy(proxyData);
+                
+                if (newProxy) {
+                    // Add to state
+                    state.proxies.push(newProxy);
+                    
+                    // Hide the proxy warning
+                    const proxyWarning = document.getElementById('proxy-warning');
+                    if (proxyWarning) {
+                        proxyWarning.style.display = 'none';
+                    }
+                    
+                    // Update dropdowns
+                    updateProxyDropdowns();
+                    
+                    // Show success message
+                    showToast('Proxy added and tested successfully', 'success');
+                    
+                    // Close the modal
+                    hideModal('quick-add-proxy-modal');
+                }
+            } else {
+                // Show warning but allow save
+                if (confirm(`Proxy test failed: ${testResult.error}\nDo you still want to save this proxy?`)) {
+                    const newProxy = await api.createProxy(proxyData);
+                    
+                    if (newProxy) {
+                        // Add to state
+                        state.proxies.push(newProxy);
+                        
+                        // Hide the proxy warning
+                        const proxyWarning = document.getElementById('proxy-warning');
+                        if (proxyWarning) {
+                            proxyWarning.style.display = 'none';
+                        }
+                        
+                        // Update dropdowns
+                        updateProxyDropdowns();
+                        
+                        // Show success message
+                        showToast('Proxy added successfully', 'success');
+                        
+                        // Close the modal
+                        hideModal('quick-add-proxy-modal');
+                    }
+                }
+            }
+        } catch (error) {
+            showToast('Error testing proxy', 'error');
+        } finally {
+            // Reset button
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = 'Save & Continue';
+            }
+        }
+    };
+    const handleProxyChange = async (event) => {
+        const select = event.target;
+        const accountId = select.dataset.accountId;
+        const proxyId = select.value;
+        
+        // Show loading state
+        select.disabled = true;
+        const originalHtml = select.parentNode.innerHTML;
+        select.parentNode.innerHTML = `<div class="proxy-loading"><i class="fas fa-spinner fa-spin"></i> Updating...</div>`;
+        
+        try {
+            // Update the proxy association
+            const result = await api.updateAccountProxy(accountId, proxyId);
+            
+            if (result) {
+                showToast('Proxy updated successfully', 'success');
+                
+                // Update the account in state
+                const accountIndex = state.accounts.findIndex(acc => acc.id === accountId);
+                if (accountIndex !== -1) {
+                    state.accounts[accountIndex].proxy_id = proxyId;
+                }
+                
+                // Also update the proxy's account list in state
+                if (proxyId) {
+                    const proxyIndex = state.proxies.findIndex(p => p.id === proxyId);
+                    if (proxyIndex !== -1) {
+                        if (!state.proxies[proxyIndex].accounts) {
+                            state.proxies[proxyIndex].accounts = [];
+                        }
+                        
+                        if (!state.proxies[proxyIndex].accounts.includes(accountId)) {
+                            state.proxies[proxyIndex].accounts.push(accountId);
+                        }
+                    }
+                }
+                
+                // Reload the accounts to reflect changes
+                await loadAccounts(state.currentListId);
+            } else {
+                showToast('Failed to update proxy', 'error');
+                // Restore original select
+                select.parentNode.innerHTML = originalHtml;
+                document.querySelector(`select[data-account-id="${accountId}"]`).addEventListener('change', handleProxyChange);
+            }
+        } catch (error) {
+            console.error('Error updating proxy:', error);
+            showToast('Error updating proxy', 'error');
+            // Restore original select
+            select.parentNode.innerHTML = originalHtml;
+            document.querySelector(`select[data-account-id="${accountId}"]`).addEventListener('change', handleProxyChange);
+        }
+    };
     // UI Rendering
     const renderAccounts = (accounts) => {
         if (!accounts.length) {
@@ -293,6 +569,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Fallback to UI avatars if no valid avatar
                 return `<i class="fas fa-user"></i>`;
             };
+            
+            // Get proxy information for this account
+            const proxy = account.proxy_id ? state.proxies.find(p => p.id === account.proxy_id) : null;
+            
+            // Create proxy selection dropdown
+            const proxyDropdown = `
+                <div class="proxy-select-wrapper">
+                    <select class="account-proxy-select" data-account-id="${account.id}">
+                        <option value="">-- Select Proxy --</option>
+                        ${state.proxies.map(p => {
+                            // Count how many accounts are using this proxy
+                            const accountCount = p.accounts ? p.accounts.length : 0;
+                            // Determine if this proxy is full (3 accounts max) and not already assigned to this account
+                            const isFull = accountCount >= 3 && !p.accounts.includes(account.id);
+                            
+                            return `<option value="${p.id}" ${account.proxy_id === p.id ? 'selected' : ''} ${isFull ? 'disabled' : ''}>
+                                ${p.host}:${p.port} (${accountCount}/3)
+                            </option>`;
+                        }).join('')}
+                    </select>
+                </div>
+                ${proxy ? `
+                <div class="proxy-status ${proxy.status || 'untested'}">
+                    <i class="fas fa-${proxy.status === 'online' ? 'check-circle' : proxy.status === 'offline' ? 'times-circle' : 'question-circle'}"></i>
+                    ${proxy.status === 'online' ? 'Online' : proxy.status === 'offline' ? 'Offline' : 'Untested'}
+                </div>` : ''}
+            `;
 
             return `
             <tr data-id="${account.id}">
@@ -320,6 +623,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         ''
                     }
                 </td>
+                <td class="proxy-column">
+                    <div class="account-proxy">
+                        ${proxyDropdown}
+                    </div>
+                </td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn btn-icon btn-text edit-account-btn" data-id="${account.id}" title="Edit account">
@@ -335,6 +643,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Attach event listeners
         attachAccountEventListeners();
+        
+        // Attach proxy selection event listeners
+        document.querySelectorAll('.account-proxy-select').forEach(select => {
+            select.addEventListener('change', handleProxyChange);
+        });
     };
 
     const renderLists = (lists) => {
@@ -593,15 +906,606 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     const handleAddAccountClick = () => {
+        // Check if we have any proxies first
+        if (state.proxies.length === 0) {
+            showQuickAddProxyModal();
+            return;
+        }
+        
+        // Show import options modal
+        showModal('account-import-modal');
+        
+        // Reset UI
+        document.querySelectorAll('.import-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        // Setup proxy dropdown
+        updateProxyDropdowns();
+        
+        // Setup continue button
+        const continueBtn = document.getElementById('continue-import-btn');
+        if (continueBtn) {
+            // Clone to remove existing event listeners
+            const newContinueBtn = continueBtn.cloneNode(true);
+            continueBtn.parentNode.replaceChild(newContinueBtn, continueBtn);
+            
+            newContinueBtn.addEventListener('click', handleContinueImport);
+        }
+        
+        // Add click event to import options
+        document.querySelectorAll('.import-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // Remove selected class from all options
+                document.querySelectorAll('.import-option').forEach(o => {
+                    o.classList.remove('selected');
+                });
+                
+                // Add selected class to clicked option
+                this.classList.add('selected');
+            });
+        });
+    };
+    const handleContinueImport = () => {
+        // Get selected import option
+        const selectedOption = document.querySelector('.import-option.selected');
+        if (!selectedOption) {
+            showToast('Please select an import method', 'error');
+            return;
+        }
+        
+        // Get selected proxy
+        const proxySelect = document.getElementById('account-proxy');
+        if (!proxySelect || !proxySelect.value) {
+            showToast('Please select a proxy', 'error');
+            return;
+        }
+        
+        // Store selected proxy ID
+        const selectedProxyId = proxySelect.value;
+        
+        // Get import method
+        const importMethod = selectedOption.dataset.option;
+        
+        // Hide the import options modal
+        hideModal('account-import-modal');
+        
+        // Show the appropriate import modal based on the selected method
+        switch (importMethod) {
+            case 'session':
+                showModal('session-import-modal');
+                setupSessionImport(selectedProxyId);
+                break;
+            case 'tdata':
+                showModal('tdata-import-modal');
+                setupTDataImport(selectedProxyId);
+                break;
+            case 'phone':
+                showModal('phone-import-modal');
+                setupPhoneImport(selectedProxyId);
+                break;
+            default:
+                showToast('Invalid import method', 'error');
+                break;
+        }
+    };
+    const setupSessionImport = (proxyId) => {
+        // Setup back button
+        const backBtn = document.getElementById('back-to-import-options-btn-session');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                hideModal('session-import-modal');
+                showModal('account-import-modal');
+            });
+        }
+        
+        // Setup file upload areas
+        const sessionUploadArea = document.getElementById('session-upload-area');
+        const jsonUploadArea = document.getElementById('json-upload-area');
+        
+        if (sessionUploadArea) {
+            sessionUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                sessionUploadArea.classList.add('dragover');
+            });
+            
+            sessionUploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                sessionUploadArea.classList.remove('dragover');
+            });
+            
+            sessionUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                sessionUploadArea.classList.remove('dragover');
+                
+                // Handle file drop
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.endsWith('.session')) {
+                        handleSessionFileSelect(file);
+                    } else {
+                        showToast('Please select a .session file', 'error');
+                    }
+                }
+            });
+        }
+        
+        if (jsonUploadArea) {
+            jsonUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                jsonUploadArea.classList.add('dragover');
+            });
+            
+            jsonUploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                jsonUploadArea.classList.remove('dragover');
+            });
+            
+            jsonUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                jsonUploadArea.classList.remove('dragover');
+                
+                // Handle file drop
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.endsWith('.json')) {
+                        handleJsonFileSelect(file);
+                    } else {
+                        showToast('Please select a .json file', 'error');
+                    }
+                }
+            });
+        }
+        
+        // Setup file input triggers
+        const sessionFileInput = document.getElementById('session-file-input');
+        const jsonFileInput = document.getElementById('json-file-input');
+        
+        if (sessionFileInput) {
+            sessionFileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleSessionFileSelect(e.target.files[0]);
+                }
+            });
+        }
+        
+        if (jsonFileInput) {
+            jsonFileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleJsonFileSelect(e.target.files[0]);
+                }
+            });
+        }
+        
+        // Update proxy display
+        const proxyDisplay = document.getElementById('session-selected-proxy');
+        if (proxyDisplay) {
+            const selectedProxy = state.proxies.find(p => p.id === proxyId);
+            if (selectedProxy) {
+                proxyDisplay.textContent = `${selectedProxy.host}:${selectedProxy.port}`;
+            } else {
+                proxyDisplay.textContent = 'None';
+            }
+        }
+        
+        // Update account list dropdown
+        const accountListSelect = document.getElementById('session-account-list');
+        if (accountListSelect) {
+            let options = '';
+            state.lists.forEach(list => {
+                options += `<option value="${list.id}">${list.name}</option>`;
+            });
+            accountListSelect.innerHTML = options;
+        }
+        
+        // Setup import button
+        const importBtn = document.getElementById('import-session-btn');
+        if (importBtn) {
+            // Clone to remove existing event listeners
+            const newImportBtn = importBtn.cloneNode(true);
+            importBtn.parentNode.replaceChild(newImportBtn, importBtn);
+            
+            newImportBtn.addEventListener('click', () => {
+                handleSessionImport(proxyId);
+            });
+        }
+    };
+    
+    const setupTDataImport = (proxyId) => {
+        // Setup back button
+        const backBtn = document.getElementById('back-to-import-options-btn-tdata');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                hideModal('tdata-import-modal');
+                showModal('account-import-modal');
+            });
+        }
+        
+        // Reset upload status
+        const uploadStatus = document.getElementById('upload-status');
+        const progressBar = document.getElementById('upload-progress-bar');
+        const statusText = document.getElementById('upload-status-text');
+        
+        if (uploadStatus) uploadStatus.style.display = 'none';
+        if (progressBar) progressBar.style.width = '0%';
+        if (statusText) statusText.textContent = '';
+        
+        // Disable submit button
+        const submitBtn = document.getElementById('import-tdata-submit-btn');
+        if (submitBtn) submitBtn.disabled = true;
+        
+        // Setup drag and drop for tdata upload
+        const uploadArea = document.getElementById('tdata-upload-area');
+        const uploadInput = document.getElementById('tdata-input');
+        
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                // Handle file drop
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    if (file.name.endsWith('.zip')) {
+                        handleTDataFileSelect(file);
+                    } else {
+                        showToast('Please select a .zip file containing TData', 'error');
+                    }
+                }
+            });
+            
+            // Handle click on upload area
+            uploadArea.addEventListener('click', () => {
+                if (uploadInput) uploadInput.click();
+            });
+        }
+        
+        if (uploadInput) {
+            uploadInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleTDataFileSelect(e.target.files[0]);
+                }
+            });
+        }
+        
+        // Update proxy display
+        const proxyDisplay = document.getElementById('tdata-selected-proxy');
+        if (proxyDisplay) {
+            const selectedProxy = state.proxies.find(p => p.id === proxyId);
+            if (selectedProxy) {
+                proxyDisplay.textContent = `${selectedProxy.host}:${selectedProxy.port}`;
+            } else {
+                proxyDisplay.textContent = 'None';
+            }
+        }
+        
+        // Update account list dropdown
+        const accountListSelect = document.getElementById('tdata-account-list');
+        if (accountListSelect) {
+            let options = '';
+            state.lists.forEach(list => {
+                options += `<option value="${list.id}">${list.name}</option>`;
+            });
+            accountListSelect.innerHTML = options;
+        }
+        
+        // Setup import button
+        const importBtn = document.getElementById('import-tdata-submit-btn');
+        if (importBtn) {
+            // Clone to remove existing event listeners
+            const newImportBtn = importBtn.cloneNode(true);
+            importBtn.parentNode.replaceChild(newImportBtn, importBtn);
+            
+            newImportBtn.addEventListener('click', () => {
+                handleTDataImport(proxyId);
+            });
+        }
+    };
+    
+    const setupPhoneImport = (proxyId) => {
+        // Setup back button
+        const backBtn = document.getElementById('back-to-import-options-btn-phone');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                hideModal('phone-import-modal');
+                showModal('account-import-modal');
+            });
+        }
+        
         // Reset the form
-        document.getElementById('add-account-form').reset();
+        document.getElementById('phone-import-form').reset();
         document.getElementById('avatar-preview').innerHTML = '<i class="fas fa-user"></i>';
         document.getElementById('avatar-url').value = '';
         
-        // Show the modal
-        showModal('add-account-modal');
+        // Hide verification code row
+        document.getElementById('verification-code-row').style.display = 'none';
+        
+        // Show phone footer, hide verify footer
+        document.getElementById('phone-import-footer').style.display = 'block';
+        document.getElementById('phone-verify-footer').style.display = 'none';
+        
+        // Update proxy display
+        const proxyDisplay = document.getElementById('phone-selected-proxy');
+        if (proxyDisplay) {
+            const selectedProxy = state.proxies.find(p => p.id === proxyId);
+            if (selectedProxy) {
+                proxyDisplay.textContent = `${selectedProxy.host}:${selectedProxy.port}`;
+            } else {
+                proxyDisplay.textContent = 'None';
+            }
+        }
+        
+        // Handle avatar upload
+        handleAvatarUpload();
+        
+        // Setup request code button
+        const requestCodeBtn = document.getElementById('request-code-btn');
+        if (requestCodeBtn) {
+            // Clone to remove existing event listeners
+            const newRequestCodeBtn = requestCodeBtn.cloneNode(true);
+            requestCodeBtn.parentNode.replaceChild(newRequestCodeBtn, requestCodeBtn);
+            
+            newRequestCodeBtn.addEventListener('click', () => {
+                handleRequestCode(proxyId);
+            });
+        }
+        
+        // Setup verify code button
+        const verifyCodeBtn = document.getElementById('verify-code-btn');
+        if (verifyCodeBtn) {
+            // Clone to remove existing event listeners
+            const newVerifyCodeBtn = verifyCodeBtn.cloneNode(true);
+            verifyCodeBtn.parentNode.replaceChild(newVerifyCodeBtn, verifyCodeBtn);
+            
+            newVerifyCodeBtn.addEventListener('click', () => {
+                handleVerifyCode(proxyId);
+            });
+        }
+        
+        // Setup back to phone input button
+        const backToPhoneBtn = document.getElementById('back-to-phone-input-btn');
+        if (backToPhoneBtn) {
+            // Clone to remove existing event listeners
+            const newBackToPhoneBtn = backToPhoneBtn.cloneNode(true);
+            backToPhoneBtn.parentNode.replaceChild(newBackToPhoneBtn, backToPhoneBtn);
+            
+            newBackToPhoneBtn.addEventListener('click', () => {
+                // Show phone footer, hide verify footer
+                document.getElementById('phone-import-footer').style.display = 'block';
+                document.getElementById('phone-verify-footer').style.display = 'none';
+                
+                // Hide verification code row
+                document.getElementById('verification-code-row').style.display = 'none';
+            });
+        }
     };
-
+    const handleSessionFileSelect = (file) => {
+        // Display the file info
+        const fileInfo = document.getElementById('session-file-info');
+        if (fileInfo) {
+            fileInfo.textContent = `Selected file: ${file.name} (${formatFileSize(file.size)})`;
+        }
+    };
+    
+    const handleJsonFileSelect = (file) => {
+        // Display the file info
+        const fileInfo = document.getElementById('json-file-info');
+        if (fileInfo) {
+            fileInfo.textContent = `Selected file: ${file.name} (${formatFileSize(file.size)})`;
+        }
+    };
+    
+    const handleTDataFileSelect = (file) => {
+        // Display the file info
+        const statusText = document.getElementById('upload-status-text');
+        const uploadStatus = document.getElementById('upload-status');
+        const submitBtn = document.getElementById('import-tdata-submit-btn');
+        
+        if (statusText) {
+            statusText.textContent = `Selected file: ${file.name} (${formatFileSize(file.size)})`;
+        }
+        
+        if (uploadStatus) {
+            uploadStatus.style.display = 'block';
+        }
+        
+        if (submitBtn) {
+            submitBtn.disabled = false;
+        }
+    };
+    
+    const formatFileSize = (bytes) => {
+        if (bytes < 1024) {
+            return bytes + ' B';
+        } else if (bytes < 1024 * 1024) {
+            return (bytes / 1024).toFixed(2) + ' KB';
+        } else {
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+    };
+    
+    const handleSessionImport = async (proxyId) => {
+        // This is a mock function as we don't have the full session import functionality
+        showToast('Session import is not fully implemented in this demo', 'info');
+        
+        // In a real implementation, you would upload the session and JSON files,
+        // then use them to import the account with the specified proxy
+    };
+    
+    const handleTDataImport = async (proxyId) => {
+        // Get the selected list ID
+        const listId = document.getElementById('tdata-account-list').value;
+        
+        // Get the TData file
+        const uploadInput = document.getElementById('tdata-input');
+        if (!uploadInput || !uploadInput.files || uploadInput.files.length === 0) {
+            showToast('Please select a TData ZIP file', 'error');
+            return;
+        }
+        
+        const file = uploadInput.files[0];
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('tdata_zip', file);
+        formData.append('target_list_id', listId);
+        formData.append('proxy_id', proxyId);
+        
+        // Show loading state
+        const progressBar = document.getElementById('upload-progress-bar');
+        const statusText = document.getElementById('upload-status-text');
+        const submitBtn = document.getElementById('import-tdata-submit-btn');
+        
+        if (submitBtn) submitBtn.disabled = true;
+        if (statusText) statusText.textContent = 'Uploading and processing TData...';
+        
+        // Simulate progress (actual progress events would be better)
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            if (progress > 90) {
+                clearInterval(interval);
+            }
+            if (progressBar) progressBar.style.width = `${progress}%`;
+        }, 300);
+        
+        try {
+            // In a real implementation, you would send the TData file to the server
+            // Mock successful import for the demo
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Clear the interval
+            clearInterval(interval);
+            
+            // Show success state
+            if (progressBar) progressBar.style.width = '100%';
+            if (statusText) statusText.textContent = 'TData imported successfully!';
+            
+            showToast('TData import simulated for demo purposes', 'success');
+            
+            setTimeout(() => {
+                hideModal('tdata-import-modal');
+            }, 1000);
+        } catch (error) {
+            // Clear the interval
+            clearInterval(interval);
+            
+            // Show error state
+            if (progressBar) progressBar.style.width = '0%';
+            if (statusText) statusText.textContent = `Error: ${error.message}`;
+            if (submitBtn) submitBtn.disabled = false;
+            
+            showToast('Error importing TData', 'error');
+        }
+    };
+    
+    const handleRequestCode = async (proxyId) => {
+        // Validate form
+        const nameInput = document.getElementById('name');
+        const phoneInput = document.getElementById('phone');
+        
+        if (!nameInput.value.trim()) {
+            showToast('Please enter a name', 'error');
+            nameInput.focus();
+            return;
+        }
+        
+        if (!phoneInput.value.trim()) {
+            showToast('Please enter a phone number', 'error');
+            phoneInput.focus();
+            return;
+        }
+        
+        // Show verification step
+        document.getElementById('verification-code-row').style.display = 'block';
+        document.getElementById('phone-import-footer').style.display = 'none';
+        document.getElementById('phone-verify-footer').style.display = 'block';
+        
+        // In a real implementation, you would send the request to the server to trigger
+        // the Telegram verification code
+        showToast('Verification code requested (simulated)', 'info');
+        
+        // Focus the verification code input
+        setTimeout(() => {
+            const codeInput = document.getElementById('verification-code');
+            if (codeInput) codeInput.focus();
+        }, 100);
+    };
+    
+    const handleVerifyCode = async (proxyId) => {
+        // Get the verification code
+        const codeInput = document.getElementById('verification-code');
+        
+        if (!codeInput.value.trim()) {
+            showToast('Please enter the verification code', 'error');
+            codeInput.focus();
+            return;
+        }
+        
+        // Get other form data
+        const nameInput = document.getElementById('name');
+        const phoneInput = document.getElementById('phone');
+        const usernameInput = document.getElementById('username');
+        const avatarUrlInput = document.getElementById('avatar-url');
+        const listIdSelect = document.getElementById('account-list');
+        const limitInvitesInput = document.getElementById('limit-invites');
+        const limitMessagesInput = document.getElementById('limit-messages');
+        
+        // Create account data
+        const accountData = {
+            name: nameInput.value.trim(),
+            phone: phoneInput.value.trim(),
+            username: usernameInput.value.trim(),
+            avatar: avatarUrlInput.value,
+            list_id: listIdSelect.value,
+            proxy_id: proxyId,
+            limits: {
+                daily_invites: parseInt(limitInvitesInput.value) || 30,
+                daily_messages: parseInt(limitMessagesInput.value) || 50
+            }
+        };
+        
+        // Show loading state
+        const verifyBtn = document.getElementById('verify-code-btn');
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
+        
+        try {
+            // In a real implementation, you would send the verification code to the server
+            // Mock successful verification for the demo
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Create the account
+            const newAccount = await api.createAccount(accountData);
+            
+            if (newAccount) {
+                showToast('Account created successfully', 'success');
+                hideModal('phone-import-modal');
+                
+                // Reload accounts
+                await loadAccounts(state.currentListId);
+                await loadStats(state.currentListId);
+            } else {
+                showToast('Error creating account', 'error');
+            }
+        } catch (error) {
+            showToast(`Error verifying code: ${error.message}`, 'error');
+        } finally {
+            // Reset button state
+            verifyBtn.disabled = false;
+            verifyBtn.innerHTML = 'Verify & Add Account';
+        }
+    };
     const handleAddListClick = () => {
         // Reset the form
         document.getElementById('add-list-form').reset();
@@ -614,6 +1518,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('add-account-form');
         const nameInput = document.getElementById('name');
         const phoneInput = document.getElementById('phone');
+        const proxySelect = document.getElementById('account-proxy');
         
         // Basic validation
         if (!nameInput.value.trim()) {
@@ -628,6 +1533,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        if (!proxySelect.value) {
+            showToast('Please select a proxy', 'error');
+            proxySelect.focus();
+            return;
+        }
+        
         // Collect form data
         const accountData = {
             name: nameInput.value.trim(),
@@ -635,6 +1546,7 @@ document.addEventListener('DOMContentLoaded', function() {
             username: document.getElementById('username').value.trim(),
             avatar: document.getElementById('avatar-url').value || `https://ui-avatars.com/api/?name=${encodeURIComponent(nameInput.value.trim())}&background=random`,
             list_id: document.getElementById('account-list').value,
+            proxy_id: proxySelect.value,
             limits: {
                 daily_invites: parseInt(document.getElementById('limit-invites').value) || 30,
                 daily_messages: parseInt(document.getElementById('limit-messages').value) || 50
@@ -1324,8 +2236,31 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Load initial data
         await loadLists();
+        
+        // Load proxies first
+        state.proxies = await api.getProxies();
+        
+        // Show proxy warning if no proxies available
+        const proxyWarning = document.getElementById('proxy-warning');
+        if (proxyWarning) {
+            if (state.proxies.length === 0) {
+                proxyWarning.style.display = 'flex';
+                
+                // Setup quick add proxy button
+                const addProxyBtn = document.getElementById('add-proxy-from-warning-btn');
+                if (addProxyBtn) {
+                    addProxyBtn.addEventListener('click', showQuickAddProxyModal);
+                }
+            } else {
+                proxyWarning.style.display = 'none';
+            }
+        }
+        
         await loadAccounts('all');
         await loadStats('all');
+        
+        // Update proxy dropdown in add account modal
+        updateProxyDropdowns();
         
         // Attach event listeners
         attachGlobalEventListeners();

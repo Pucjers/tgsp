@@ -109,3 +109,113 @@ def save_accounts_meta(meta_data: Dict[str, Any]) -> bool:
 def allowed_file(filename: str) -> bool:
     """Check if a filename has an allowed extension"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
+
+
+# New functions for proxy management
+def get_proxies_file() -> str:
+    """Get the path to the proxies data file"""
+    try:
+        return os.path.join(current_app.config.get('DATA_DIR', 'data'), 'proxies.json')
+    except RuntimeError:
+        # Fallback when outside application context
+        return os.path.join('data', 'proxies.json')
+
+
+def get_proxies() -> List[Dict[str, Any]]:
+    """Load proxies from JSON file"""
+    proxies_file = get_proxies_file()
+    ensure_data_directory()
+    
+    if not os.path.exists(proxies_file):
+        with open(proxies_file, 'w') as f:
+            json.dump([], f)
+        return []
+    
+    try:
+        with open(proxies_file, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        current_app.logger.error(f"Error loading proxies: {e}")
+        return []
+
+
+def save_proxies(proxies: List[Dict[str, Any]]) -> bool:
+    """Save proxies to JSON file"""
+    proxies_file = get_proxies_file()
+    ensure_data_directory()
+    
+    try:
+        with open(proxies_file, 'w') as f:
+            json.dump(proxies, f, indent=2)
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error saving proxies: {e}")
+        return False
+
+
+def get_proxy_by_id(proxy_id: str) -> Optional[Dict[str, Any]]:
+    """Get a single proxy by its ID"""
+    proxies = get_proxies()
+    return next((proxy for proxy in proxies if proxy['id'] == proxy_id), None)
+
+
+def update_account_proxy(account_id: str, proxy_id: Optional[str]) -> bool:
+    """Update the proxy association for an account"""
+    accounts = get_accounts()
+    proxies = get_proxies()
+    
+    account_index = next((i for i, acc in enumerate(accounts) if acc['id'] == account_id), None)
+    if account_index is None:
+        return False
+    
+    # If removing proxy association
+    if proxy_id is None:
+        # Check if account had a previous proxy
+        old_proxy_id = accounts[account_index].get('proxy_id')
+        if old_proxy_id:
+            # Remove account from old proxy's accounts list
+            old_proxy_index = next((i for i, p in enumerate(proxies) if p['id'] == old_proxy_id), None)
+            if old_proxy_index is not None:
+                if 'accounts' in proxies[old_proxy_index] and account_id in proxies[old_proxy_index]['accounts']:
+                    proxies[old_proxy_index]['accounts'].remove(account_id)
+        
+        # Remove proxy_id from account
+        accounts[account_index]['proxy_id'] = None
+        save_accounts(accounts)
+        save_proxies(proxies)
+        return True
+    
+    # Check if the proxy exists and can accept more accounts
+    proxy_index = next((i for i, p in enumerate(proxies) if p['id'] == proxy_id), None)
+    if proxy_index is None:
+        return False
+    
+    # Check if this proxy already has 3 accounts and this account is not already assigned to it
+    if ('accounts' in proxies[proxy_index] and 
+        len(proxies[proxy_index]['accounts']) >= 3 and 
+        account_id not in proxies[proxy_index]['accounts']):
+        return False
+    
+    # Check if account had a previous proxy
+    old_proxy_id = accounts[account_index].get('proxy_id')
+    if old_proxy_id and old_proxy_id != proxy_id:
+        # Remove account from old proxy's accounts list
+        old_proxy_index = next((i for i, p in enumerate(proxies) if p['id'] == old_proxy_id), None)
+        if old_proxy_index is not None:
+            if 'accounts' in proxies[old_proxy_index] and account_id in proxies[old_proxy_index]['accounts']:
+                proxies[old_proxy_index]['accounts'].remove(account_id)
+    
+    # Update account with new proxy_id
+    accounts[account_index]['proxy_id'] = proxy_id
+    
+    # Add account to proxy's accounts list
+    if 'accounts' not in proxies[proxy_index]:
+        proxies[proxy_index]['accounts'] = []
+    
+    if account_id not in proxies[proxy_index]['accounts']:
+        proxies[proxy_index]['accounts'].append(account_id)
+    
+    # Save changes
+    save_accounts(accounts)
+    save_proxies(proxies)
+    return True

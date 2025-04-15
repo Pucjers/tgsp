@@ -19,7 +19,8 @@ class Account:
         list_id: Optional[str] = None,
         cooldown_until: Optional[str] = None,
         premium: bool = False,
-        created_at: Optional[str] = None
+        created_at: Optional[str] = None,
+        proxy_id: Optional[str] = None  # New field for proxy association
     ):
         self.id = id or str(uuid.uuid4())
         self.phone = phone
@@ -40,6 +41,7 @@ class Account:
         self.cooldown_until = cooldown_until
         self.premium = premium
         self.created_at = created_at or datetime.datetime.now().isoformat()
+        self.proxy_id = proxy_id  # Store the ID of the associated proxy
         
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Account':
@@ -56,7 +58,8 @@ class Account:
             list_id=data.get('list_id'),
             cooldown_until=data.get('cooldown_until'),
             premium=data.get('premium', False),
-            created_at=data.get('created_at')
+            created_at=data.get('created_at'),
+            proxy_id=data.get('proxy_id')  # Load proxy_id from data
         )
     
     def to_dict(self) -> Dict[str, Any]:
@@ -73,7 +76,8 @@ class Account:
             'list_id': self.list_id,
             'cooldown_until': self.cooldown_until,
             'premium': self.premium,
-            'created_at': self.created_at
+            'created_at': self.created_at,
+            'proxy_id': self.proxy_id  # Include proxy_id in serialized data
         }
     
     def update(self, data: Dict[str, Any]) -> None:

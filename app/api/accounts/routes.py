@@ -35,12 +35,17 @@ def create_account():
     if not data:
         return jsonify({"error": "No data provided"}), 400
     
-    required_fields = ['phone', 'name']
+    required_fields = ['phone', 'name', 'proxy_id']
     for field in required_fields:
         if field not in data:
             return jsonify({"error": f"Missing required field: {field}"}), 400
     
     result = create_new_account(data)
+    
+    # Check for error message in result
+    if 'error' in result:
+        return jsonify({"error": result['error']}), result.get('status_code', 400)
+    
     if result.get('updated', False):
         return jsonify(result.get('account')), 200
     else:
@@ -69,6 +74,56 @@ def update_account(account_id):
         return jsonify({"error": "Account not found"}), 404
     
     return jsonify(updated_account)
+
+@accounts_bp.route('/<account_id>/proxy', methods=['PUT'])
+def update_account_proxy(account_id):
+    """Update the proxy associated with an account"""
+    data = request.json
+    
+    if not data or 'proxy_id' not in data:
+        return jsonify({"error": "Proxy ID is required"}), 400
+    
+    from app.utils.file_utils import update_account_proxy
+    from app.api.proxies.services import get_proxy_by_id
+    
+    # Verify account exists
+    account = get_account_by_id(account_id)
+    if not account:
+        return jsonify({"error": "Account not found"}), 404
+    
+    proxy_id = data['proxy_id']
+    
+    # If proxy_id is empty string or null, remove proxy association
+    if not proxy_id:
+        result = update_account_proxy(account_id, None)
+        if result:
+            return jsonify({"message": "Proxy association removed successfully"})
+        else:
+            return jsonify({"error": "Failed to remove proxy association"}), 500
+    
+    # Verify proxy exists
+    proxy = get_proxy_by_id(proxy_id)
+    if not proxy:
+        return jsonify({"error": "Proxy not found"}), 404
+    
+    # Check if account is already using this proxy
+    if account.get('proxy_id') == proxy_id:
+        return jsonify({"message": "Account is already using this proxy"})
+    
+    # Check if proxy can accept more accounts
+    proxy_accounts = proxy.get('accounts', [])
+    if len(proxy_accounts) >= 3 and account_id not in proxy_accounts:
+        return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
+    
+    # Update the proxy association
+    result = update_account_proxy(account_id, proxy_id)
+    
+    if result:
+        # Get the updated account
+        updated_account = get_account_by_id(account_id)
+        return jsonify(updated_account)
+    else:
+        return jsonify({"error": "Failed to update proxy association"}), 500
 
 
 @accounts_bp.route('/<account_id>', methods=['DELETE'])
@@ -218,11 +273,26 @@ def import_tdata_zip_endpoint():
     # Get the target list ID if provided
     target_list_id = request.form.get('target_list_id', 'main')
     
+    # Get proxy ID (required)
+    proxy_id = request.form.get('proxy_id')
+    if not proxy_id:
+        return jsonify({"error": "Proxy ID is required"}), 400
+    
+    # Verify proxy exists
+    from app.api.proxies.services import get_proxy_by_id
+    proxy = get_proxy_by_id(proxy_id)
+    if not proxy:
+        return jsonify({"error": "Proxy not found"}), 404
+    
+    # Check if proxy can accept more accounts
+    proxy_accounts = proxy.get('accounts', [])
+    if len(proxy_accounts) >= 3:
+        return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
+    
     # Process the TData ZIP file
-    result = import_tdata_zip(tdata_zip, target_list_id)
+    result = import_tdata_zip(tdata_zip, target_list_id, proxy_id)
     
     if "error" in result:
         return jsonify({"error": result["error"]}), 400
     
     return jsonify(result)
-

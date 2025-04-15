@@ -11,6 +11,7 @@ from app.api.groups import groups_bp
 from app.api.group_lists import group_lists_bp
 from app.api.stats import stats_bp
 from app.api.broadcaster import broadcaster_bp
+from app.api.proxies import proxies_bp
 
 api_bp.register_blueprint(accounts_bp)
 api_bp.register_blueprint(lists_bp)
@@ -18,3 +19,4 @@ api_bp.register_blueprint(groups_bp)
 api_bp.register_blueprint(group_lists_bp)
 api_bp.register_blueprint(stats_bp)
 api_bp.register_blueprint(broadcaster_bp)
+api_bp.register_blueprint(proxies_bp)

@@ -56,3 +56,8 @@ def static_files(filename):
             abort(404)
     
     return send_from_directory(current_app.static_folder, filename)
+
+@main_bp.route('/proxies.html')
+def proxies():
+    """Serve the proxy management page"""
+    return send_from_directory(current_app.template_folder, 'proxies.html')

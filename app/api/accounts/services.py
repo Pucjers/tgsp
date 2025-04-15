@@ -14,7 +14,8 @@ from app.utils.file_utils import (
     save_accounts, 
     get_account_lists,
     get_accounts_meta,
-    save_accounts_meta
+    save_accounts_meta,
+    update_account_proxy
 )
 
 # Import TData integration if available
@@ -130,6 +131,24 @@ def create_new_account(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     accounts = get_accounts()
     
+    # Check if a proxy_id was provided and proxy exists with room for more accounts
+    if 'proxy_id' in data and data['proxy_id']:
+        from app.utils.file_utils import get_proxies, update_account_proxy
+        from app.api.proxies.services import get_proxy_by_id
+        
+        # Fetch the proxy to verify it exists
+        proxy = get_proxy_by_id(data['proxy_id'])
+        if not proxy:
+            return {"error": "Proxy not found", "status_code": 404}
+        
+        # Check if proxy can accept more accounts
+        proxy_accounts = proxy.get('accounts', [])
+        if len(proxy_accounts) >= 3:
+            return {"error": "Proxy has reached the maximum number of accounts (3)", "status_code": 400}
+    else:
+        # Proxy is required for new accounts
+        return {"error": "A proxy must be specified for new accounts", "status_code": 400}
+    
     # Check if an account with this phone number already exists
     phone = data['phone']
     phone_str = str(phone).strip()
@@ -165,6 +184,17 @@ def create_new_account(data: Dict[str, Any]) -> Dict[str, Any]:
         for field in ['name', 'username', 'avatar', 'limits']:
             if field in data and data[field]:
                 existing_account[field] = data[field]
+        
+        # Update proxy if provided
+        if 'proxy_id' in data:
+            old_proxy_id = existing_account.get('proxy_id')
+            new_proxy_id = data['proxy_id']
+            
+            # Only update if proxy changed
+            if old_proxy_id != new_proxy_id:
+                # Update account-proxy relationship
+                update_account_proxy(existing_account['id'], new_proxy_id)
+                existing_account['proxy_id'] = new_proxy_id
                 
         save_accounts(accounts)
         return {"account": existing_account, "updated": True}
@@ -173,6 +203,7 @@ def create_new_account(data: Dict[str, Any]) -> Dict[str, Any]:
     if not avatar:
         # Generate UI avatar if no avatar provided
         avatar = f'https://ui-avatars.com/api/?name={quote(data["name"])}&background=random'
+    
     # Create new account object with list_ids array
     new_account = {
         "id": str(uuid.uuid4()),
@@ -186,6 +217,7 @@ def create_new_account(data: Dict[str, Any]) -> Dict[str, Any]:
         "cooldown_until": None,
         "list_ids": data.get('list_ids', ['main']),  # Array of list IDs
         "premium": False,
+        "proxy_id": data['proxy_id']  # Add proxy_id to the account
     }
     
     # For backward compatibility, also set the list_id field
@@ -196,6 +228,9 @@ def create_new_account(data: Dict[str, Any]) -> Dict[str, Any]:
     
     accounts.append(new_account)
     save_accounts(accounts)
+    
+    # Update proxy with this account
+    update_account_proxy(new_account['id'], data['proxy_id'])
     
     return {"account": new_account, "updated": False}
 
@@ -395,19 +430,34 @@ def check_accounts(account_ids: List[str]) -> List[Dict[str, Any]]:
         return []
 
 
-def import_tdata_zip(tdata_zip: FileStorage, target_list_id: str = 'main') -> Dict[str, Any]:
+def import_tdata_zip(tdata_zip: FileStorage, target_list_id: str = 'main', proxy_id: str = None) -> Dict[str, Any]:
     """
     Import a Telegram account from a TData ZIP file
     
     Args:
         tdata_zip: The uploaded TData ZIP file
         target_list_id: The list ID to add the account to
+        proxy_id: The proxy ID to use for this account
         
     Returns:
         Dictionary with import results
     """
     if not TDATA_SUPPORT:
         return {"error": "TData import is not supported in this installation"}
+    
+    # Verify proxy exists and can accept more accounts
+    if proxy_id:
+        from app.api.proxies.services import get_proxy_by_id
+        proxy = get_proxy_by_id(proxy_id)
+        if not proxy:
+            return {"error": "Proxy not found"}
+        
+        # Check if proxy can accept more accounts
+        proxy_accounts = proxy.get('accounts', [])
+        if len(proxy_accounts) >= 3:
+            return {"error": "Proxy has reached the maximum number of accounts (3)"}
+    else:
+        return {"error": "Proxy ID is required"}
     
     try:
         # Create a temporary file to store the uploaded zip
@@ -454,6 +504,9 @@ def import_tdata_zip(tdata_zip: FileStorage, target_list_id: str = 'main') -> Di
         account["list_ids"] = [target_list_id]
         account["list_id"] = target_list_id
         
+        # Set proxy_id (required)
+        account["proxy_id"] = proxy_id
+        
         # Get existing metadata
         accounts_meta = get_accounts_meta()
         
@@ -473,8 +526,12 @@ def import_tdata_zip(tdata_zip: FileStorage, target_list_id: str = 'main') -> Di
             result = update_existing_account(existing_account["id"], {
                 "avatar": account["avatar"],
                 "list_ids": account["list_ids"],
-                "list_id": account["list_id"]
+                "list_id": account["list_id"],
+                "proxy_id": proxy_id
             })
+            
+            # Update the proxy with this account
+            update_account_proxy(existing_account["id"], proxy_id)
             
             return {"success": True, "account": existing_account, "updated": True}
         else:
@@ -482,6 +539,9 @@ def import_tdata_zip(tdata_zip: FileStorage, target_list_id: str = 'main') -> Di
             accounts = get_accounts()
             accounts.append(account)
             save_accounts(accounts)
+            
+            # Update the proxy with this account
+            update_account_proxy(account["id"], proxy_id)
             
             return {"success": True, "account": account, "updated": False}
             
