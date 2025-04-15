@@ -1,13 +1,17 @@
+"""
+New account routes with improved integration using the new account_integration module.
+
+This module provides enhanced functionality for importing Telegram accounts via
+session files, TData and phone numbers.
+"""
+
 from flask import request, jsonify, current_app
 import os
 import datetime
 import uuid
-import json
 import tempfile
-import asyncio
 from werkzeug.utils import secure_filename
 
-# Import the necessary components from your app
 from app.api.accounts import accounts_bp
 from app.utils.file_utils import (
     get_accounts, 
@@ -15,37 +19,28 @@ from app.utils.file_utils import (
     get_account_lists,
     get_accounts_meta,
     save_accounts_meta,
+    get_proxies
 )
-from app.api.accounts.services import( 
+from app.api.accounts.services import (
     get_filtered_accounts,
     update_existing_account,
     delete_account_by_id,
     bulk_delete_accounts,
-    move_accounts,
-    check_accounts
+    move_accounts
 )
+from app.api.proxies.services import get_proxy_by_id
 
-# Import the necessary Telethon components
-try:
-    from telethon import TelegramClient
-    from telethon.errors import (
-        PhoneNumberInvalidError,
-        SessionPasswordNeededError,
-        PhoneCodeInvalidError,
-        PhoneCodeExpiredError
-    )
-    TELETHON_AVAILABLE = True
-except ImportError:
-    TELETHON_AVAILABLE = False
-    current_app.logger.warning("Telethon not available. Phone and session import will be disabled.")
-
-# Session storage for phone verification
-# This will store temporary session data during the verification process
-# Format: { 'phone_number': { 'client': TelegramClient, 'phone_code_hash': str, proxy: {...} } }
-active_verifications = {}
-
-# Create directory for session files
-os.makedirs('saved_sessions', exist_ok=True)
+# Import the new account integration module
+from app.services.account_integration import (
+    convert_session_file,
+    process_tdata_zip,
+    request_phone_verification,
+    verify_phone_code,
+    check_accounts_sync,
+    configure_proxy,
+    TELETHON_AVAILABLE,
+    load_api_credentials
+)
 
 @accounts_bp.route('', methods=['GET'])
 def get_accounts():
@@ -86,7 +81,6 @@ def import_session():
                 return jsonify({"error": "Invalid JSON file"}), 400
     
     # Verify proxy exists
-    from app.api.proxies.services import get_proxy_by_id
     proxy = get_proxy_by_id(proxy_id)
     if not proxy:
         return jsonify({"error": "Proxy not found"}), 404
@@ -96,6 +90,9 @@ def import_session():
     if len(proxy_accounts) >= 3:
         return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
     
+    # Configure proxy for Telethon
+    proxy_config = configure_proxy(proxy)
+    
     # Process the session file
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -103,84 +100,40 @@ def import_session():
             session_path = os.path.join(temp_dir, session_file.filename)
             session_file.save(session_path)
             
-            # Extract session name (without extension)
-            session_name = os.path.splitext(os.path.basename(session_file.filename))[0]
+            # Convert and import the session
+            result = convert_session_file(session_path)
             
-            # Configure proxy for Telethon
-            proxy_config = None
-            if proxy:
-                proxy_type = proxy['type']
-                proxy_addr = (proxy['host'], int(proxy['port']))
-                proxy_credentials = None
-                
-                if proxy['username'] and proxy['password']:
-                    proxy_credentials = (proxy['username'], proxy['password'])
-                
-                proxy_config = {
-                    'proxy_type': proxy_type,
-                    'addr': proxy_addr,
-                    'credentials': proxy_credentials
-                }
+            if "error" in result:
+                return jsonify({"error": result["error"]}), 400
             
-            # Load API credentials
-            api_id, api_hash = _load_api_credentials()
+            account = result["account"]
             
-            # Create a permanent session file
-            permanent_session_path = os.path.join('saved_sessions', f"{session_name}.session")
-            
-            # Copy the session file to the permanent location
-            with open(session_path, 'rb') as src_file:
-                with open(permanent_session_path, 'wb') as dest_file:
-                    dest_file.write(src_file.read())
-            
-            # Connect to Telegram
-            client = TelegramClient(
-                os.path.join('saved_sessions', session_name),
-                api_id,
-                api_hash,
-                proxy=proxy_config
-            )
-            
-            # Start the client and get user info - FIX: use new event loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            user_info = loop.run_until_complete(_get_user_info_from_session(client))
-            loop.close()
-            
-            if not user_info:
-                return jsonify({"error": "Failed to get user information from session"}), 400
+            # Add fields required by the application
+            account["list_ids"] = [target_list_id]
+            account["list_id"] = target_list_id
+            account["proxy_id"] = proxy_id
             
             # Use custom name if provided
             if custom_name:
-                user_info['name'] = custom_name
-            
-            # Create account object
-            account_id = str(uuid.uuid4())
-            account = {
-                "id": account_id,
-                "telegram_id": user_info['id'],
-                "phone": user_info['phone'],
-                "name": user_info['name'],
-                "username": user_info['username'],
-                "avatar": user_info.get('avatar', f"https://ui-avatars.com/api/?name={user_info['name']}&background=random"),
-                "status": "Не проверен",
-                "limits": json_data.get('limits', {
+                account["name"] = custom_name
+                
+            # Add limits from JSON if available
+            if 'limits' in json_data:
+                account["limits"] = json_data["limits"]
+            else:
+                account["limits"] = {
                     "daily_invites": 30,
                     "daily_messages": 50
-                }),
-                "created_at": datetime.datetime.now().isoformat(),
-                "cooldown_until": None,
-                "list_ids": [target_list_id],
-                "list_id": target_list_id,
-                "premium": user_info.get('premium', False),
-                "proxy_id": proxy_id
-            }
+                }
+                
+            account["created_at"] = datetime.datetime.now().isoformat()
+            account["cooldown_until"] = None
             
             # Check if an account with this phone number already exists
             existing_account = None
-            if user_info['phone']:
+            if account.get('phone'):
                 accounts = get_accounts()
-                existing_account = next((acc for acc in accounts if acc.get('phone') == user_info['phone']), None)
+                existing_account = next((acc for acc in accounts if acc.get('phone') == account['phone']), None)
             
             if existing_account:
                 # Update existing account
@@ -199,8 +152,8 @@ def import_session():
                     # Update associated metadata
                     accounts_meta = get_accounts_meta()
                     accounts_meta[account_id] = {
-                        "session_path": permanent_session_path,
-                        "telegram_id": user_info['id']
+                        "session_path": account["session_path"],
+                        "telegram_id": account["telegram_id"]
                     }
                     save_accounts_meta(accounts_meta)
                     
@@ -221,15 +174,15 @@ def import_session():
                 
                 # Save metadata
                 accounts_meta = get_accounts_meta()
-                accounts_meta[account_id] = {
-                    "session_path": permanent_session_path,
-                    "telegram_id": user_info['id']
+                accounts_meta[account["id"]] = {
+                    "session_path": account["session_path"],
+                    "telegram_id": account["telegram_id"]
                 }
                 save_accounts_meta(accounts_meta)
                 
                 # Update proxy association
                 from app.utils.file_utils import update_account_proxy
-                update_account_proxy(account_id, proxy_id)
+                update_account_proxy(account["id"], proxy_id)
                 
                 return jsonify({
                     "success": True,
@@ -241,20 +194,142 @@ def import_session():
         current_app.logger.error(f"Error in import_session: {str(e)}")
         return jsonify({"error": f"Error importing session: {str(e)}"}), 500
 
-@accounts_bp.route('/<account_id>', methods=['PUT'])
-def update_account(account_id):
-    """Update an existing account"""
-    data = request.json
+@accounts_bp.route('/import-tdata-zip', methods=['POST'])
+def import_tdata_zip_route():
+    """Import account from TData ZIP file"""
+    # Check if TData support is available
+    if not OPENTELE_AVAILABLE:
+        return jsonify({"error": "TData import is not supported in this installation"}), 400
     
-    updated_account = update_existing_account(account_id, data)
+    # Check if TData file is provided
+    if 'tdata_zip' not in request.files:
+        return jsonify({"error": "No TData file provided"}), 400
     
-    if not updated_account:
-        return jsonify({"error": "Account not found"}), 404
+    tdata_zip = request.files['tdata_zip']
+    if tdata_zip.filename == '':
+        return jsonify({"error": "No TData file selected"}), 400
     
-    return jsonify(updated_account)
+    if not tdata_zip.filename.endswith('.zip'):
+        return jsonify({"error": "File must be a .zip file"}), 400
+    
+    # Get other parameters
+    target_list_id = request.form.get('target_list_id', 'main')
+    proxy_id = request.form.get('proxy_id')
+    
+    if not proxy_id:
+        return jsonify({"error": "Proxy ID is required"}), 400
+    
+    # Verify proxy exists and can accept more accounts
+    proxy = get_proxy_by_id(proxy_id)
+    if not proxy:
+        return jsonify({"error": "Proxy not found"}), 404
+    
+    # Check if proxy can accept more accounts
+    proxy_accounts = proxy.get('accounts', [])
+    if len(proxy_accounts) >= 3:
+        return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
+    
+    # Configure proxy for Telethon
+    proxy_config = configure_proxy(proxy)
+    
+    # Process the TData ZIP file
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
+            zip_path = temp_zip.name
+            tdata_zip.save(zip_path)
+        
+        # Process the TData ZIP file
+        result = process_tdata_zip(zip_path, proxy_config=proxy_config)
+        
+        # Remove the temporary file
+        try:
+            os.unlink(zip_path)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to remove temporary file: {e}")
+        
+        if "error" in result:
+            return jsonify({"error": result["error"]}), 400
+            
+        # If successful, prepare account data
+        account = result["account"]
+        
+        # Add fields required by the application
+        account["list_ids"] = [target_list_id]
+        account["list_id"] = target_list_id
+        account["proxy_id"] = proxy_id
+        
+        # Remove session_path from the response as it's not needed in the frontend
+        session_path = account.pop("session_path", None)
+        telegram_id = account.pop("telegram_id", None)
+        
+        # Check if an account with this phone number already exists
+        existing_account = None
+        if account.get('phone'):
+            accounts = get_accounts()
+            existing_account = next((acc for acc in accounts if acc.get('phone') == account['phone']), None)
+        
+        # Get existing metadata
+        accounts_meta = get_accounts_meta()
+        
+        if existing_account:
+            # Update existing account
+            accounts = get_accounts()
+            account_index = next((i for i, acc in enumerate(accounts) if acc['id'] == existing_account['id']), None)
+            
+            if account_index is not None:
+                # Preserve existing account ID
+                account_id = existing_account['id']
+                account['id'] = account_id
+                
+                # Update account
+                accounts[account_index] = account
+                save_accounts(accounts)
+                
+                # Update metadata
+                accounts_meta[account_id] = {
+                    "session_path": session_path,
+                    "telegram_id": telegram_id
+                }
+                save_accounts_meta(accounts_meta)
+                
+                # Update proxy association
+                from app.utils.file_utils import update_account_proxy
+                update_account_proxy(account_id, proxy_id)
+                
+                return jsonify({
+                    "success": True,
+                    "account": account,
+                    "updated": True
+                })
+        else:
+            # Save the new account
+            accounts = get_accounts()
+            accounts.append(account)
+            save_accounts(accounts)
+            
+            # Save metadata
+            accounts_meta[account["id"]] = {
+                "session_path": session_path,
+                "telegram_id": telegram_id
+            }
+            save_accounts_meta(accounts_meta)
+            
+            # Update proxy association
+            from app.utils.file_utils import update_account_proxy
+            update_account_proxy(account["id"], proxy_id)
+            
+            return jsonify({
+                "success": True,
+                "account": account,
+                "updated": False
+            })
+            
+    except Exception as e:
+        current_app.logger.error(f"Error in import_tdata_zip: {str(e)}")
+        return jsonify({"error": f"Error importing TData: {str(e)}"}), 500
 
 @accounts_bp.route('/request-code', methods=['POST'])
-def request_verification_code():
+def request_verification_code_route():
     """Request verification code for phone number import"""
     if not TELETHON_AVAILABLE:
         return jsonify({"error": "Phone import is not available (Telethon library missing)"}), 400
@@ -276,7 +351,6 @@ def request_verification_code():
         return jsonify({"error": "Proxy ID is required"}), 400
     
     # Verify proxy exists
-    from app.api.proxies.services import get_proxy_by_id
     proxy = get_proxy_by_id(proxy_id)
     if not proxy:
         return jsonify({"error": "Proxy not found"}), 404
@@ -286,71 +360,19 @@ def request_verification_code():
     if len(proxy_accounts) >= 3:
         return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
     
-    try:
-        # Configure proxy for Telethon
-        proxy_config = None
-        if proxy:
-            proxy_type = proxy['type']
-            proxy_addr = (proxy['host'], int(proxy['port']))
-            proxy_credentials = None
-            
-            if proxy['username'] and proxy['password']:
-                proxy_credentials = (proxy['username'], proxy['password'])
-            
-            proxy_config = {
-                'proxy_type': proxy_type,
-                'addr': proxy_addr,
-                'credentials': proxy_credentials
-            }
-        
-        # Load API credentials
-        api_id, api_hash = _load_api_credentials()
-        
-        # Format phone number (remove '+' if present)
-        phone_number = phone.strip()
-        if phone_number.startswith('+'):
-            phone_number = phone_number[1:]
-        
-        # Create a temporary session
-        session_path = os.path.join('saved_sessions', f"temp_{phone_number}")
-        
-        # Create the client
-        client = TelegramClient(
-            session_path,
-            api_id,
-            api_hash,
-            proxy=proxy_config
-        )
-        
-        # Start the client and send verification code - FIX: use new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result = loop.run_until_complete(_request_code(client, phone_number))
-        loop.close()
-        
-        # Store the client in active verifications for later use
-        active_verifications[phone_number] = {
-            'client': client,
-            'phone_code_hash': result['phone_code_hash'],
-            'proxy': proxy,
-            'proxy_id': proxy_id
-        }
-        
-        return jsonify({
-            "success": True,
-            "message": "Verification code sent",
-            "phone_code_hash": result['phone_code_hash']
-        })
+    # Configure proxy for Telethon
+    proxy_config = configure_proxy(proxy)
     
-    except PhoneNumberInvalidError:
-        return jsonify({"error": "Invalid phone number format"}), 400
-    except Exception as e:
-        current_app.logger.error(f"Error in request_verification_code: {str(e)}")
-        return jsonify({"error": f"Error requesting verification code: {str(e)}"}), 500
-
+    # Request verification code
+    result = request_phone_verification(phone, proxy_config)
+    
+    if "error" in result:
+        return jsonify({"error": result["error"]}), 400
+        
+    return jsonify(result)
 
 @accounts_bp.route('/verify-code', methods=['POST'])
-def verify_code():
+def verify_code_route():
     """Verify a phone number with the verification code"""
     if not TELETHON_AVAILABLE:
         return jsonify({"error": "Phone import is not available (Telethon library missing)"}), 400
@@ -367,209 +389,138 @@ def verify_code():
         if field not in data:
             return jsonify({"error": f"Missing required field: {field}"}), 400
     
-    # Format phone number (remove '+' if present)
-    phone_number = data['phone'].strip()
-    if phone_number.startswith('+'):
-        phone_number = phone_number[1:]
-    
-    # Check if we have an active verification for this phone
-    if phone_number not in active_verifications:
-        return jsonify({"error": "No active verification session for this phone number. Please request a code first."}), 400
-    
-    verification = active_verifications[phone_number]
-    client = verification['client']
-    phone_code_hash = verification['phone_code_hash']
-    proxy_id = verification['proxy_id']
-    
-    try:
-        # Sign in with the code - FIX: use new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop) 
-        user = loop.run_until_complete(_sign_in_with_code(client, phone_number, data['code'], phone_code_hash))
-        loop.close()
-        
-        if not user:
-            return jsonify({"error": "Failed to sign in with the provided code"}), 400
-        
-        # Get the final session file path
-        session_path = os.path.join('saved_sessions', f"{user.id}.session")
-        
-        # Create account data
-        account_id = str(uuid.uuid4())
-        account = {
-            "id": account_id,
-            "telegram_id": user.id,
-            "phone": f"+{phone_number}",
-            "name": data['name'],
-            "username": data.get('username', ''),
-            "avatar": data.get('avatar', f"https://ui-avatars.com/api/?name={data['name']}&background=random"),
-            "status": "Не проверен",
-            "limits": data.get('limits', {
-                "daily_invites": 30,
-                "daily_messages": 50
-            }),
-            "created_at": datetime.datetime.now().isoformat(),
-            "cooldown_until": None,
-            "list_ids": [data.get('list_id', 'main')],
-            "list_id": data.get('list_id', 'main'),
-            "premium": getattr(user, 'premium', False),
-            "proxy_id": proxy_id
+    # Process verification
+    result = verify_phone_code(
+        data['phone'],
+        data['code'],
+        {
+            'name': data['name'],
+            'username': data.get('username', ''),
+            'avatar': data.get('avatar', ''),
+            'list_id': data.get('list_id', 'main'),
+            'proxy_id': data['proxy_id'],
+            'limits': data.get('limits', {
+                'daily_invites': 30,
+                'daily_messages': 50
+            })
         }
+    )
+    
+    if "error" in result:
+        return jsonify({"error": result["error"]}), 400
         
-        # Check if an account with this phone number already exists
-        accounts = get_accounts()
-        existing_account = next((acc for acc in accounts if acc.get('phone') == f"+{phone_number}"), None)
+    # If successful, prepare response data
+    account = result["account"]
+    
+    # Make a copy of the session path for metadata
+    session_path = account.get("session_path")
+    telegram_id = account.get("telegram_id")
+    
+    # Check if an account with this phone number already exists
+    accounts = get_accounts()
+    existing_account = next((acc for acc in accounts if acc.get('phone') == account['phone']), None)
+    
+    if existing_account:
+        # Update existing account
+        account_index = next((i for i, acc in enumerate(accounts) if acc['id'] == existing_account['id']), None)
         
-        if existing_account:
-            # Update existing account
-            account_index = next((i for i, acc in enumerate(accounts) if acc['id'] == existing_account['id']), None)
+        if account_index is not None:
+            # Preserve existing account ID
+            account_id = existing_account['id']
+            account['id'] = account_id
             
-            if account_index is not None:
-                # Preserve existing account ID
-                account_id = existing_account['id']
-                account['id'] = account_id
-                
-                # Update account
-                accounts[account_index] = account
-                save_accounts(accounts)
-                
-                # Update associated metadata
-                accounts_meta = get_accounts_meta()
-                accounts_meta[account_id] = {
-                    "session_path": session_path,
-                    "telegram_id": user.id
-                }
-                save_accounts_meta(accounts_meta)
-                
-                # Update proxy association
-                from app.utils.file_utils import update_account_proxy
-                update_account_proxy(account_id, proxy_id)
-                
-                # Clean up
-                del active_verifications[phone_number]
-                
-                return jsonify({
-                    "success": True,
-                    "account": account,
-                    "updated": True
-                })
-        else:
-            # Save new account
-            accounts.append(account)
+            # Update account
+            accounts[account_index] = account
             save_accounts(accounts)
             
-            # Save metadata
+            # Update associated metadata
             accounts_meta = get_accounts_meta()
             accounts_meta[account_id] = {
                 "session_path": session_path,
-                "telegram_id": user.id
+                "telegram_id": telegram_id
             }
             save_accounts_meta(accounts_meta)
             
             # Update proxy association
             from app.utils.file_utils import update_account_proxy
-            update_account_proxy(account_id, proxy_id)
-            
-            # Clean up
-            del active_verifications[phone_number]
+            update_account_proxy(account_id, data['proxy_id'])
             
             return jsonify({
                 "success": True,
                 "account": account,
-                "updated": False
+                "updated": True
             })
-    
-    except PhoneCodeInvalidError:
-        return jsonify({"error": "Invalid verification code"}), 400
-    except PhoneCodeExpiredError:
-        return jsonify({"error": "Verification code has expired. Please request a new code."}), 400
-    except SessionPasswordNeededError:
-        return jsonify({"error": "Two-factor authentication is enabled. Please use TData import for this account."}), 400
-    except Exception as e:
-        current_app.logger.error(f"Error in verify_code: {str(e)}")
-        return jsonify({"error": f"Error verifying code: {str(e)}"}), 500
-
-
-# Helper Functions
-
-async def _get_user_info_from_session(client):
-    """Get user information from a Telegram session"""
-    try:
-        await client.connect()
+    else:
+        # Save new account
+        accounts.append(account)
+        save_accounts(accounts)
         
-        if not await client.is_user_authorized():
-            await client.disconnect()
-            return None
-        
-        # Get user info
-        me = await client.get_me()
-        
-        # Check premium status
-        premium = False
-        try:
-            from telethon.tl.functions.users import GetFullUserRequest
-            full_user = await client(GetFullUserRequest(me.id))
-            premium = getattr(full_user.full_user, 'premium', False)
-        except:
-            pass
-        
-        # Get avatar
-        avatar_path = None
-        try:
-            avatar_path = os.path.join('saved_sessions', f"avatar_{me.id}.jpg")
-            await client.download_profile_photo(me, file=avatar_path, download_big=False)
-            
-            # If avatar was downloaded successfully, create a URL for it
-            if os.path.exists(avatar_path):
-                # Generate a unique filename
-                _, ext = os.path.splitext(avatar_path)
-                avatar_filename = f"{uuid.uuid4()}{ext}"
-                avatar_url_path = os.path.join('uploads', avatar_filename)
-                avatar_dest_path = os.path.join(current_app.config['UPLOAD_FOLDER'], avatar_filename)
-                
-                # Ensure upload directory exists
-                os.makedirs(os.path.dirname(avatar_dest_path), exist_ok=True)
-                
-                # Copy avatar to uploads folder
-                import shutil
-                shutil.copy(avatar_path, avatar_dest_path)
-                
-                # Remove temporary avatar
-                os.remove(avatar_path)
-                
-                avatar_path = f"/{avatar_url_path}"
-            else:
-                avatar_path = None
-        except:
-            avatar_path = None
-        
-        # Disconnect
-        await client.disconnect()
-        
-        # Format name
-        first_name = me.first_name or ''
-        last_name = me.last_name or ''
-        full_name = first_name
-        if last_name:
-            full_name += f" {last_name}"
-        
-        # Return user info
-        return {
-            'id': me.id,
-            'phone': f"+{me.phone}" if me.phone else None,
-            'name': full_name,
-            'username': me.username or '',
-            'avatar': avatar_path,
-            'premium': premium
+        # Save metadata
+        accounts_meta = get_accounts_meta()
+        accounts_meta[account["id"]] = {
+            "session_path": session_path,
+            "telegram_id": telegram_id
         }
+        save_accounts_meta(accounts_meta)
+        
+        # Update proxy association
+        from app.utils.file_utils import update_account_proxy
+        update_account_proxy(account["id"], data['proxy_id'])
+        
+        return jsonify({
+            "success": True,
+            "account": account,
+            "updated": False
+        })
+
+@accounts_bp.route('/check', methods=['POST'])
+def check_accounts_route():
+    """Check the status of accounts with Telegram"""
+    data = request.json
+    account_ids = data.get('account_ids', [])
     
-    except Exception as e:
-        current_app.logger.error(f"Error getting user info from session: {str(e)}")
-        try:
-            await client.disconnect()
-        except:
-            pass
-        return None
+    if not account_ids:
+        return jsonify({"error": "No account IDs provided"}), 400
+        
+    # Gather the accounts to check
+    all_accounts = get_accounts()
+    accounts_to_check = [acc for acc in all_accounts if acc['id'] in account_ids]
+    
+    # Get metadata for session paths
+    accounts_meta = get_accounts_meta()
+    
+    # Get proxies for configuration
+    all_proxies = get_proxies()
+    proxy_configs = {}
+    for proxy in all_proxies:
+        proxy_configs[proxy['id']] = configure_proxy(proxy)
+    
+    # Check the accounts
+    checked_accounts = check_accounts_sync(accounts_to_check, accounts_meta, proxy_configs)
+    
+    # Update the accounts in the database
+    for updated_account in checked_accounts:
+        account_index = next((i for i, acc in enumerate(all_accounts) if acc['id'] == updated_account['id']), None)
+        if account_index is not None:
+            all_accounts[account_index] = updated_account
+    
+    save_accounts(all_accounts)
+    
+    # Return only the checked accounts
+    return jsonify(checked_accounts)
+
+@accounts_bp.route('/<account_id>', methods=['PUT'])
+def update_account(account_id):
+    """Update an existing account"""
+    data = request.json
+    
+    updated_account = update_existing_account(account_id, data)
+    
+    if not updated_account:
+        return jsonify({"error": "Account not found"}), 404
+    
+    return jsonify(updated_account)
+
 @accounts_bp.route('/<account_id>', methods=['DELETE'])
 def delete_account(account_id):
     """Delete an account by ID"""
@@ -580,9 +531,8 @@ def delete_account(account_id):
     
     return jsonify({"message": "Account deleted successfully"})
 
-
 @accounts_bp.route('/bulk-delete', methods=['POST'])
-def bulk_delete():
+def bulk_delete_route():
     """Delete multiple accounts by their IDs"""
     data = request.json
     account_ids = data.get('account_ids', [])
@@ -599,8 +549,9 @@ def bulk_delete():
         "message": f"Successfully deleted {result['deleted_count']} accounts",
         "deleted_count": result['deleted_count']
     })
+
 @accounts_bp.route('/move', methods=['POST'])
-def move():
+def move_route():
     """Move accounts between lists"""
     data = request.json
     account_ids = data.get('account_ids', [])
@@ -618,148 +569,3 @@ def move():
     return jsonify({
         "message": f"Successfully updated {result['updated_count']} accounts"
     })
-
-
-@accounts_bp.route('/check', methods=['POST'])
-def check():
-    """Check the status of accounts with Telegram"""
-    data = request.json
-    account_ids = data.get('account_ids', [])
-    
-    if not account_ids:
-        return jsonify({"error": "No account IDs provided"}), 400
-    
-    checked_accounts = check_accounts(account_ids)
-    
-    return jsonify(checked_accounts)
-
-async def _request_code(client, phone_number):
-    """Send verification code to a phone number"""
-    try:
-        await client.connect()
-        
-        # Check if already authorized
-        if await client.is_user_authorized():
-            await client.disconnect()
-            raise Exception("This phone number is already authorized. Use session import instead.")
-        
-        # Send code request
-        result = await client.send_code_request(phone_number)
-        
-        return {
-            'phone_code_hash': result.phone_code_hash
-        }
-    
-    except Exception as e:
-        try:
-            await client.disconnect()
-        except:
-            pass
-        raise e
-
-
-async def _sign_in_with_code(client, phone_number, code, phone_code_hash):
-    """Sign in to Telegram with verification code"""
-    try:
-        await client.connect()
-        
-        # Check if already authorized
-        if await client.is_user_authorized():
-            me = await client.get_me()
-            await client.disconnect()
-            return me
-        
-        # Sign in with the code
-        user = await client.sign_in(phone_number, code, phone_code_hash=phone_code_hash)
-        
-        # Disconnect
-        await client.disconnect()
-        
-        return user
-    
-    except Exception as e:
-        try:
-            await client.disconnect()
-        except:
-            pass
-        raise e
-
-
-def _load_api_credentials():
-    """Load Telegram API credentials"""
-    # Try to get from app config
-    try:
-        api_id = current_app.config.get('TELEGRAM_API_ID')
-        api_hash = current_app.config.get('TELEGRAM_API_HASH')
-        
-        if api_id and api_hash:
-            return int(api_id), api_hash
-    except (RuntimeError, ValueError):
-        pass
-    
-    # Fallback to config file
-    try:
-        import configparser
-        config_path = os.path.join(os.getcwd(), "data", "telegram_api.ini")
-        
-        if os.path.exists(config_path):
-            config = configparser.ConfigParser()
-            config.read(config_path)
-            api_id = config.getint('Telegram', 'api_id')
-            api_hash = config.get('Telegram', 'api_hash')
-            return api_id, api_hash
-    except Exception as e:
-        current_app.logger.error(f"Error loading API credentials from config: {e}")
-    
-    # Use default values
-    current_app.logger.warning("Using default API credentials")
-    return 149467, "65f1b75a0b1d5a6461c1fc67b5514c1b"  # Public test keys app/api/accounts/routes.py - New API endpoints for importing session files and phone verification
-
-@accounts_bp.route('/import-tdata-zip', methods=['POST'])
-def import_tdata_zip_route():
-    """Import account from TData ZIP file"""
-    # Check if TData support is available
-    # if not TDATA_SUPPORT:
-    #     return jsonify({"error": "TData import is not supported in this installation"}), 400
-    
-    # Check if TData file is provided
-    if 'tdata_zip' not in request.files:
-        return jsonify({"error": "No TData file provided"}), 400
-    
-    tdata_zip = request.files['tdata_zip']
-    if tdata_zip.filename == '':
-        return jsonify({"error": "No TData file selected"}), 400
-    
-    if not tdata_zip.filename.endswith('.zip'):
-        return jsonify({"error": "File must be a .zip file"}), 400
-    
-    # Get other parameters
-    target_list_id = request.form.get('target_list_id', 'main')
-    proxy_id = request.form.get('proxy_id')
-    
-    if not proxy_id:
-        return jsonify({"error": "Proxy ID is required"}), 400
-    
-    # Verify proxy exists and can accept more accounts
-    from app.api.proxies.services import get_proxy_by_id
-    proxy = get_proxy_by_id(proxy_id)
-    if not proxy:
-        return jsonify({"error": "Proxy not found"}), 404
-    
-    # Check if proxy can accept more accounts
-    proxy_accounts = proxy.get('accounts', [])
-    if len(proxy_accounts) >= 3:
-        return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
-        
-    # Import the TData
-    from app.api.accounts.services import import_tdata_zip
-    try:
-        result = import_tdata_zip(tdata_zip, target_list_id, proxy_id)
-        
-        if "error" in result:
-            return jsonify(result), 400
-            
-        return jsonify(result)
-    except Exception as e:
-        current_app.logger.error(f"Error importing TData: {str(e)}")
-        return jsonify({"error": f"Error importing TData: {str(e)}"}), 500
