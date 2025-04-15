@@ -265,7 +265,11 @@ def convert_zip_tdata_and_get_account(zip_path):
         
         # Process the TData
         print("Running async extract_account_info")
-        result = asyncio.run(extract_account_info(tdata_dir))
+        # FIX: Use an explicit event loop instead of asyncio.run
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(extract_account_info(tdata_dir))
+        loop.close()
         
         # Clean up the temporary directory
         print(f"Cleaning up temporary directory: {temp_dir}")
@@ -277,6 +281,21 @@ def convert_zip_tdata_and_get_account(zip_path):
             print(f"Account extraction successful: {result.get('account', {}).get('name')}")
         
         return result
+    
+    except Exception as e:
+        error_msg = f"Error processing TData: {str(e)}"
+        print(error_msg)
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        
+        # Clean up in case of error
+        try:
+            print(f"Cleaning up temporary directory after error: {temp_dir}")
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        except Exception as cleanup_error:
+            print(f"Error during cleanup: {cleanup_error}")
+        
+        return {"error": error_msg}
     
     except Exception as e:
         error_msg = f"Error processing TData: {str(e)}"

@@ -127,8 +127,11 @@ def import_session():
                 proxy=proxy_config
             )
             
-            # Start the client and get user info
-            user_info = asyncio.run(_get_user_info_from_session(client))
+            # Start the client and get user info - FIX: use new event loop
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            user_info = loop.run_until_complete(_get_user_info_from_session(client))
+            loop.close()
             
             if not user_info:
                 return jsonify({"error": "Failed to get user information from session"}), 400
@@ -294,8 +297,11 @@ def request_verification_code():
             proxy=proxy_config
         )
         
-        # Start the client and send verification code
-        result = asyncio.run(_request_code(client, phone_number))
+        # Start the client and send verification code - FIX: use new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(_request_code(client, phone_number))
+        loop.close()
         
         # Store the client in active verifications for later use
         active_verifications[phone_number] = {
@@ -351,8 +357,11 @@ def verify_code():
     proxy_id = verification['proxy_id']
     
     try:
-        # Sign in with the code
-        user = asyncio.run(_sign_in_with_code(client, phone_number, data['code'], phone_code_hash))
+        # Sign in with the code - FIX: use new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop) 
+        user = loop.run_until_complete(_sign_in_with_code(client, phone_number, data['code'], phone_code_hash))
+        loop.close()
         
         if not user:
             return jsonify({"error": "Failed to sign in with the provided code"}), 400
