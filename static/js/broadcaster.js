@@ -167,9 +167,9 @@ document.addEventListener("DOMContentLoaded", function () {
           }`
         );
         console.log(`Including ${imageUrls.length} images:`, imageUrls);
-
+  
         showToast("Sending message, please wait...", "info");
-
+  
         const longOperationTimeout = setTimeout(() => {
           showToast(
             "Message sending is taking longer than expected. Please be patient...",
@@ -180,7 +180,7 @@ document.addEventListener("DOMContentLoaded", function () {
             "warning"
           );
         }, 10000);
-
+  
         const failureTimeout = setTimeout(() => {
           console.error("Message sending timed out after 2 minutes");
           return {
@@ -189,7 +189,12 @@ document.addEventListener("DOMContentLoaded", function () {
               "Message sending timed out after 2 minutes. The operation might still be processing in the background.",
           };
         }, 120000);
-
+  
+        // Only send images that are uploaded to the server (not blob URLs)
+        const validImageUrls = imageUrls.filter(url => 
+          url.startsWith('/uploads/') || url.startsWith('http') || url.startsWith('https')
+        );
+  
         const response = await fetch("/api/broadcaster/send-message", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -197,28 +202,28 @@ document.addEventListener("DOMContentLoaded", function () {
             account_id: accountId,
             group_id: groupId,
             message: message,
-            image_urls: imageUrls,
+            image_urls: validImageUrls,
           }),
         });
-
+  
         clearTimeout(longOperationTimeout);
         clearTimeout(failureTimeout);
-
+  
         console.log(
           `API response status: ${response.status} ${response.statusText}`
         );
-
+  
         const result = await response.json();
         console.log("Send message API result:", result);
-
+  
         if (!result.success) {
           console.error(`Message sending failed: ${result.error}`);
-
+  
           if (result.cooldown_until) {
             console.warn(`Account cooldown until: ${result.cooldown_until}`);
           }
         }
-
+  
         return result;
       } catch (error) {
         console.error("Error in sendMessage():", error);
@@ -843,55 +848,71 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const handleImageUpload = async (event) => {
     const files = event.target.files;
-
+  
     if (!files || files.length === 0) return;
-
+  
     let successCount = 0;
     let errorCount = 0;
-
+  
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-
+  
       if (!file.type.startsWith("image/")) {
         showToast("Only image files are allowed", "error");
         errorCount++;
         continue;
       }
-
+  
       if (file.size > 5 * 1024 * 1024) {
         showToast("Image is too large (max 5MB)", "error");
         errorCount++;
         continue;
       }
-
+  
       try {
-        const previewUrl = URL.createObjectURL(file);
-
-        state.images.push({
-          file,
-          url: previewUrl,
-          uploaded: false,
+        // Create FormData to upload the file
+        const formData = new FormData();
+        formData.append("image", file);
+  
+        // Upload the image to the server
+        const response = await fetch("/api/broadcaster/upload-image", {
+          method: "POST",
+          body: formData,
         });
-
-        successCount++;
+  
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to upload image");
+        }
+  
+        const result = await response.json();
+  
+        if (result.url) {
+          // Add the image to the state with the server-provided URL
+          state.images.push({
+            file: file,
+            url: result.url, // Server URL that can be accessed by both client and server
+            uploaded: true,
+          });
+          successCount++;
+        } else {
+          throw new Error("No URL returned from server");
+        }
       } catch (error) {
-        console.error("Error creating preview:", error);
+        console.error("Error uploading image:", error);
         errorCount++;
       }
     }
-
+  
     if (successCount > 0) {
       renderImagePreviews();
-
-      uploadImages();
-
       showToast(`Added ${successCount} images`, "success");
     }
-
+  
     if (errorCount > 0) {
       showToast(`Failed to add ${errorCount} images`, "error");
     }
-
+  
     event.target.value = "";
   };
 

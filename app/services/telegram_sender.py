@@ -192,23 +192,9 @@ async def send_message_async(
             if image_paths and len(image_paths) > 0:
                 logger.info(f"Sending message with {len(image_paths)} images")
                 
-                # Convert image paths to absolute paths if they are relative
-                processed_paths = []
-                for path in image_paths:
-                    # If it's a URL that points to our uploads directory
-                    if path.startswith('/uploads/'):
-                        # Convert to absolute path
-                        file_name = os.path.basename(path)
-                        absolute_path = os.path.abspath(os.path.join(UPLOAD_DIR, file_name))
-                        processed_paths.append(absolute_path)
-                    else:
-                        processed_paths.append(path)
-                
-                logger.info(f"Processed image paths: {processed_paths}")
-                
-                # Log if files exist
+                # Check each image path to ensure it exists
                 valid_paths = []
-                for path in processed_paths:
+                for path in image_paths:
                     if os.path.exists(path):
                         logger.info(f"Image file found: {path} ({os.path.getsize(path)} bytes)")
                         valid_paths.append(path)
@@ -258,7 +244,7 @@ async def send_message_async(
                             for path in valid_paths:
                                 # Determine if it's a photo or document based on extension
                                 ext = os.path.splitext(path)[1].lower()
-                                if ext in ['.jpg', '.jpeg', '.png', '.webp']:
+                                if ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
                                     media.append(InputMediaUploadedPhoto(
                                         file=await client.upload_file(path)
                                     ))

@@ -2,6 +2,7 @@ from flask import request, jsonify, current_app
 import os
 import datetime
 import json
+import tempfile
 from werkzeug.utils import secure_filename
 
 from app.api.broadcaster import broadcaster_bp
@@ -226,7 +227,7 @@ def send_message():
             current_app.logger.error(f"No valid session path found for account {account_id}")
             return jsonify({
                 "success": False, 
-                "error": "No session found for this account. Please check that the account has been properly imported with TData."
+                "error": "No session found for this account. Please check that the account has been properly imported."
             }), 400
         
         current_app.logger.info(f"Using session path: {session_path}")
@@ -239,8 +240,7 @@ def send_message():
             current_app.logger.error(f"No valid identifier found for group {group_id}")
             return jsonify({"success": False, "error": "No valid group identifier found"}), 400
         
-        # Process image URLs
-        image_urls = data.get('image_urls', [])
+        # Process image URLs - Make sure they're valid server paths, not blob URLs
         processed_image_urls = []
         
         for url in image_urls:
@@ -254,12 +254,33 @@ def send_message():
                     
                     if os.path.exists(absolute_path):
                         current_app.logger.info(f"Image file found: {absolute_path}")
-                        processed_image_urls.append(url)
+                        processed_image_urls.append(absolute_path)  # Use absolute path for Telegram API
                     else:
                         current_app.logger.warning(f"Image file not found: {absolute_path} - URL: {url}")
+                elif url.startswith(('http://', 'https://')):
+                    # For external URLs, we need to download them first
+                    try:
+                        import requests
+                        
+                        # Create a temporary file
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+                            temp_path = temp_file.name
+                            
+                        # Download the image
+                        response = requests.get(url, stream=True, timeout=10)
+                        if response.status_code == 200:
+                            with open(temp_path, 'wb') as f:
+                                for chunk in response.iter_content(1024):
+                                    f.write(chunk)
+                            
+                            current_app.logger.info(f"Downloaded external image to: {temp_path}")
+                            processed_image_urls.append(temp_path)
+                        else:
+                            current_app.logger.warning(f"Failed to download external image: {url}")
+                    except Exception as e:
+                        current_app.logger.error(f"Error downloading external image: {str(e)}")
                 else:
-                    # For external URLs or other formats, just keep them
-                    processed_image_urls.append(url)
+                    current_app.logger.warning(f"Unsupported image URL format: {url}")
         
         current_app.logger.info(f"Processed {len(processed_image_urls)} valid image URLs out of {len(image_urls)}")
         
@@ -274,6 +295,14 @@ def send_message():
         )
         
         current_app.logger.info(f"Send result: {result}")
+        
+        # Clean up any temporary files
+        for path in processed_image_urls:
+            if path.startswith(tempfile.gettempdir()):
+                try:
+                    os.unlink(path)
+                except Exception as e:
+                    current_app.logger.warning(f"Failed to clean up temp file: {str(e)}")
         
         return jsonify(result)
         

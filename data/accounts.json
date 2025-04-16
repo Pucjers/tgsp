@@ -1,22 +1,22 @@
 [
   {
-    "id": "1dcd378c-f311-4862-8302-cc3b10b99eb3",
-    "phone": "+2349067682431",
-    "name": "Ueu",
-    "username": null,
-    "avatar": "E:\\Projects\\tgsp\\saved_sessions\\avatar_8111885497.jpg",
-    "status": "\u041e\u043a",
+    "id": "82ed2f14-6ada-4a02-8125-1a2e40e47d1c",
+    "phone": "+2349067732475",
+    "name": "Ror",
+    "username": "",
+    "avatar": null,
+    "status": "\u041d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d",
     "limits": {
       "daily_invites": 30,
       "daily_messages": 50
     },
-    "created_at": "2025-04-16T05:46:55.995745",
+    "created_at": "2025-04-16T12:02:41.852581",
     "cooldown_until": null,
     "list_id": "main",
     "premium": false,
     "list_ids": [
       "main"
     ],
-    "proxy_id": "de717eb7-c728-4e0c-b67d-5257d0662a83"
+    "proxy_id": "1a3f3a75-edae-4cec-a368-f6f41448ec05"
   }
 ]
