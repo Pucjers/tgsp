@@ -1,1 +1,12 @@
-[{"id": "main", "name": "Main List", "order": 1}]
+[
+  {
+    "id": "main",
+    "name": "Main List",
+    "order": 1
+  },
+  {
+    "id": "012bbbdc-9b1f-406b-b2aa-c9212c63ebe6",
+    "name": "Test",
+    "order": 2
+  }
+]

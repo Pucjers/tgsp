@@ -17,8 +17,37 @@ def get_accounts() -> list:
     """Get all accounts from storage. Always returns a list."""
     try:
         # Load accounts from file/database
-        with open('data/accounts.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
+        data_dir = 'data'
+        
+        # Try to get the directory from app config if available
+        try:
+            data_dir = current_app.config.get('DATA_DIR', 'data')
+        except RuntimeError:
+            # Not in application context
+            pass
+            
+        accounts_file = os.path.join(data_dir, 'accounts.json')
+        
+        # Ensure the directory exists
+        os.makedirs(data_dir, exist_ok=True)
+        
+        # Create empty file if it doesn't exist
+        if not os.path.exists(accounts_file):
+            with open(accounts_file, 'w', encoding='utf-8') as f:
+                json.dump([], f)
+            return []
+            
+        with open(accounts_file, 'r', encoding='utf-8') as f:
+            accounts = json.load(f)
+            
+        # Ensure we always return a list, even if the file contains something else
+        if not isinstance(accounts, list):
+            logger.error(f"accounts.json doesn't contain a list. Resetting to empty list.")
+            with open(accounts_file, 'w', encoding='utf-8') as f:
+                json.dump([], f)
+            return []
+            
+        return accounts
     except FileNotFoundError:
         logger.warning("Accounts file not found. Returning empty list.")
         return []
@@ -27,7 +56,7 @@ def get_accounts() -> list:
         return []
     except Exception as e:
         logger.error(f"Error loading accounts: {str(e)}")
-        return []  # Always return a list, even on failure
+        return [] 
 
 
 def save_accounts(accounts: List[Dict[str, Any]]) -> bool:

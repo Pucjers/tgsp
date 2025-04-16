@@ -453,31 +453,45 @@ def check_accounts_route():
         return jsonify({"error": "No account IDs provided"}), 400
         
     # Gather the accounts to check
-    all_accounts = get_accounts()
-    accounts_to_check = [acc for acc in all_accounts if acc['id'] in account_ids]
-    
-    # Get metadata for session paths
-    accounts_meta = get_accounts_meta()
-    
-    # Get proxies for configuration
-    all_proxies = get_proxies()
-    proxy_configs = {}
-    for proxy in all_proxies:
-        proxy_configs[proxy['id']] = configure_proxy(proxy)
-    
-    # Check the accounts
-    checked_accounts = check_accounts_sync(accounts_to_check, accounts_meta, proxy_configs)
-    
-    # Update the accounts in the database
-    for updated_account in checked_accounts:
-        account_index = next((i for i, acc in enumerate(all_accounts) if acc['id'] == updated_account['id']), None)
-        if account_index is not None:
-            all_accounts[account_index] = updated_account
-    
-    save_accounts(all_accounts)
-    
-    # Return only the checked accounts
-    return jsonify(checked_accounts)
+    try:
+        # Use the fully qualified import path to avoid recursion
+        from app.utils.file_utils import get_accounts as fetch_accounts
+        all_accounts = fetch_accounts()
+        
+        # Ensure all_accounts is a list - defensive programming
+        if not isinstance(all_accounts, list):
+            current_app.logger.error(f"get_accounts() returned non-list type: {type(all_accounts)}")
+            if hasattr(all_accounts, 'get_json'):  # It's a Response object
+                return all_accounts  # Return the error response as is
+            return jsonify({"error": "Failed to retrieve account data"}), 500
+            
+        accounts_to_check = [acc for acc in all_accounts if acc['id'] in account_ids]
+        
+        # Get metadata for session paths
+        accounts_meta = get_accounts_meta()
+        
+        # Get proxies for configuration
+        all_proxies = get_proxies()
+        proxy_configs = {}
+        for proxy in all_proxies:
+            proxy_configs[proxy['id']] = configure_proxy(proxy)
+        
+        # Check the accounts
+        checked_accounts = check_accounts_sync(accounts_to_check, accounts_meta, proxy_configs)
+        
+        # Update the accounts in the database
+        for updated_account in checked_accounts:
+            account_index = next((i for i, acc in enumerate(all_accounts) if acc['id'] == updated_account['id']), None)
+            if account_index is not None:
+                all_accounts[account_index] = updated_account
+        
+        save_accounts(all_accounts)
+        
+        # Return only the checked accounts
+        return jsonify(checked_accounts)
+    except Exception as e:
+        current_app.logger.error(f"Error in check_accounts_route: {str(e)}", exc_info=True)
+        return jsonify({"error": f"Error checking accounts: {str(e)}"}), 500
 
 @accounts_bp.route('/<account_id>', methods=['PUT'])
 def update_account(account_id):

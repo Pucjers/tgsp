@@ -21,9 +21,8 @@ import datetime
 import configparser
 from typing import Dict, Any, Optional, Union, Tuple, List
 
-# Telethon for session and phone imports
 try:
-    from telethon import TelegramClient
+    from telethon import TelegramClient, __version__ as telethon_version
     from telethon.tl.functions.users import GetFullUserRequest
     from telethon.errors import (
         PhoneNumberBannedError, 
@@ -37,9 +36,14 @@ try:
         PhoneCodeExpiredError
     )
     TELETHON_AVAILABLE = True
-except ImportError:
+    logging.info(f"Telethon v{telethon_version} successfully imported")
+except ImportError as e:
     TELETHON_AVAILABLE = False
-    logging.warning("Telethon not available. Session and phone imports will be disabled.")
+    logging.warning(f"Telethon not available: {e}. Session and phone imports will be disabled.")
+except Exception as e:
+    # Sometimes import can fail in other ways than ImportError
+    TELETHON_AVAILABLE = False
+    logging.warning(f"Telethon import failed with error: {e}. Session and phone imports will be disabled.")
 
 # OpenTele for TData imports
 try:
