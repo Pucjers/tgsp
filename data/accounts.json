@@ -1,8 +1,8 @@
 [
   {
-    "id": "5665f2f7-4874-4e35-9cff-46ad14934d8c",
-    "phone": "+2349067682431",
-    "name": "Ueu",
+    "id": "a7238d4b-e9f7-4231-b902-c6224f2a8545",
+    "phone": "+2349067732475",
+    "name": "Ror",
     "username": "",
     "avatar": null,
     "status": "\u041d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d",
@@ -10,13 +10,13 @@
       "daily_invites": 30,
       "daily_messages": 50
     },
-    "created_at": "2025-04-16T12:15:56.663748",
+    "created_at": "2025-04-16T12:26:58.160465",
     "cooldown_until": null,
     "list_id": "main",
     "premium": false,
     "list_ids": [
       "main"
     ],
-    "proxy_id": "1a3f3a75-edae-4cec-a368-f6f41448ec05"
+    "proxy_id": "de717eb7-c728-4e0c-b67d-5257d0662a83"
   }
 ]

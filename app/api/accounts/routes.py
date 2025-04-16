@@ -257,9 +257,9 @@ def import_tdata_zip_route():
 
         existing_account = next(
             (acc for acc in accounts 
-             if acc.get('phone') == account.get('phone')), 
+            if acc.get('user_id') == account.get('user_id')),  # Changed from 'phone' to 'telegram_id'
             None
-        )
+            )
 
         accounts_meta = get_accounts_meta()
         
