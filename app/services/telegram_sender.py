@@ -16,7 +16,8 @@ try:
         AuthKeyUnregisteredError,
         SessionPasswordNeededError
     )
-    from telethon.tl.types import InputMediaUploadedPhoto, InputMediaUploadedDocument
+    from telethon.tl.types import InputMediaUploadedPhoto, InputMediaUploadedDocument, InputChannel
+    from telethon.tl.functions.channels import JoinChannelRequest
     TELETHON_AVAILABLE = True
 except ImportError:
     TELETHON_AVAILABLE = False
@@ -186,7 +187,21 @@ async def send_message_async(
                 "success": False,
                 "error": f"Could not find group: {str(e)}"
             }
-        
+        try:
+            if hasattr(entity, 'username') and entity.username:
+                logger.info(f"Attempting to join group: {entity.username}")
+                await client(JoinChannelRequest(entity))
+                logger.info(f"Successfully joined group: {entity.username}")
+            elif hasattr(entity, 'access_hash') and entity.access_hash:
+                logger.info(f"Attempting to join group with access hash")
+                await client(JoinChannelRequest(InputChannel(entity.id, entity.access_hash)))
+                logger.info(f"Successfully joined group with access hash")
+            else:
+                logger.warning("Unable to determine how to join this group/channel")
+        except Exception as join_error:
+            # If we can't join, log it but continue trying to send the message
+            # as the error might be because we're already a member
+            logger.warning(f"Error joining group: {join_error}")
         # If we have images, send them with the message
         try:
             if image_paths and len(image_paths) > 0:
