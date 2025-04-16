@@ -307,9 +307,9 @@
     <!-- Modal Container -->
     <div class="modal-container" id="modal-container">
         <!-- Enhanced Broadcaster Modal -->
-        <div class="modal" id="enhanced-broadcaster-modal">
+        <div class="modal wider-modal" id="enhanced-broadcaster-modal">
             <div class="modal-header">
-                <h3>Enhanced Broadcaster</h3>
+                <h3>Создать задачу рассылки</h3>
                 <button class="btn-close" data-close-modal="enhanced-broadcaster-modal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -318,81 +318,78 @@
                 <!-- Task Name -->
                 <div class="form-group mb-4">
                     <label for="taskName">Название задачи</label>
-                    <div class="relative">
+                    <div class="input-container">
                         <input 
                             id="taskName"
                             type="text" 
                             class="form-control"
-                            value="My task"
+                            value="Новая задача"
                         >
-                        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-                            <i class="fas fa-info-circle text-gray-400"></i>
-                        </div>
                     </div>
                 </div>
         
                 <!-- File Upload -->
                 <div class="form-group mb-4">
                     <label>Укажите txt-файл со ссылками на чаты и/или парсы с чатами. По одной ссылке в строке.</label>
-                    <div class="flex items-center mt-2">
-                        <label class="btn btn-secondary">
+                    <div class="file-upload-container mt-2">
+                        <label class="file-upload-btn">
                             <i class="fas fa-upload mr-2"></i>
-                            <span class="text-base leading-normal">Choose file</span>
-                            <input type='file' id="chat-links-file" class="hidden">
+                            <span>Выбрать файл</span>
+                            <input type='file' id="chat-links-file" class="hidden-input">
                         </label>
-                        <span class="ml-3 text-gray-500" id="selected-file-name">
-                            No file chosen
+                        <span class="file-name" id="selected-file-name">
+                            Файл не выбран
                         </span>
                     </div>
                 </div>
         
                 <!-- Message Type -->
                 <div class="form-group mb-4">
-                    <div class="flex flex-col space-y-2">
-                        <label class="inline-flex items-center">
+                    <div class="radio-options">
+                        <label class="radio-option">
                             <input 
                                 type="radio" 
                                 name="sendMode" 
                                 value="single"
                                 checked
                             >
-                            <span class="ml-2">Отправлять одно сообщение</span>
+                            <span>Отправлять одно сообщение</span>
                         </label>
                         
-                        <div class="ml-7" id="single-message-container">
+                        <div class="message-container" id="single-message-container">
                             <textarea
                                 id="enhanced-message-text"
-                                class="form-control"
+                                class="message-textarea"
                                 rows="4"
-                                placeholder="Enter your message"
+                                placeholder="Введите текст сообщения"
                             >[Здравствуйте]/[Добрый день]/[Доброго времени суток]. Увидел вас в чате...</textarea>
-                            <div class="flex justify-end mt-2">
+                            <div class="document-btn-container">
                                 <button 
                                     type="button" 
-                                    class="btn btn-text btn-sm"
+                                    class="document-btn"
                                     id="add-document-btn"
                                 >
-                                    Добавить к сообщению документ или картинку (до 1МБ)
+                                    <i class="fas fa-paperclip"></i> Добавить документ или картинку (до 1МБ)
                                 </button>
                             </div>
                         </div>
                         
-                        <label class="inline-flex items-center">
+                        <label class="radio-option">
                             <input 
                                 type="radio" 
                                 name="sendMode" 
                                 value="file"
                             >
-                            <span class="ml-2">Отправлять сообщения из txt-файла (разделитель сообщений - "Test")</span>
+                            <span>Отправлять сообщения из txt-файла (разделитель сообщений - "Test")</span>
                         </label>
                         
-                        <label class="inline-flex items-center">
+                        <label class="radio-option">
                             <input 
                                 type="radio" 
                                 name="sendMode" 
                                 value="repost"
                             >
-                            <span class="ml-2">Отправлять репосты из ПУБЛИЧНОГО чата или канала с РАЗРЕШЁННЫМИ репостами (по одной ссылке в строке)</span>
+                            <span>Отправлять репосты из ПУБЛИЧНОГО чата или канала с РАЗРЕШЁННЫМИ репостами</span>
                         </label>
                     </div>
                 </div>
@@ -400,143 +397,225 @@
                 <!-- Work Mode -->
                 <div class="form-group mb-4">
                     <label>Режим работы:</label>
-                    <div class="flex flex-col space-y-2 mt-2">
-                        <label class="inline-flex items-center">
+                    <div class="radio-options mt-2">
+                        <label class="radio-option">
                             <input 
                                 type="radio" 
                                 name="workMode" 
                                 value="group"
                                 checked
                             >
-                            <span class="ml-2">Постинг в группу чатов</span>
+                            <span>Постинг в группу чатов</span>
                         </label>
                         
-                        <div class="ml-7" id="group-chat-container">
-                            <div class="flex items-center">
-                                <span class="mr-2">Количество чатов, в которые рассылает один аккаунт:</span>
+                        <div class="chat-count-container" id="group-chat-container">
+                            <div class="chat-count-input">
+                                <span>Количество чатов, в которые рассылает один аккаунт:</span>
                                 <input 
                                     type="number" 
                                     id="chatCount"
                                     min="1" 
                                     max="30"
-                                    class="form-control w-16"
+                                    class="number-input"
                                     value="6"
                                 >
                             </div>
-                            <div class="text-xs text-gray-500 mt-1">
+                            <div class="help-text">
                                 Не рекомендуем для данной настройки выставлять значение больше "30"
                             </div>
                         </div>
                         
-                        <label class="inline-flex items-center">
+                        <label class="radio-option">
                             <input 
                                 type="radio" 
                                 name="workMode" 
                                 value="single"
                             >
-                            <span class="ml-2">Постинг в один чат</span>
+                            <span>Постинг в один чат</span>
                         </label>
                     </div>
                 </div>
         
                 <!-- Additional Options -->
                 <div class="form-group mb-4">
-                    <div class="flex flex-col space-y-2">
-                        <label class="inline-flex items-center">
+                    <div class="checkbox-options">
+                        <label class="checkbox-option">
                             <input 
                                 type="checkbox" 
                                 id="joinChats"
                             >
-                            <span class="ml-2">Начинать постинг не дожидаясь вступления во все чаты</span>
+                            <span>Начинать постинг не дожидаясь вступления во все чаты</span>
                         </label>
                         
-                        <label class="inline-flex items-center">
+                        <label class="checkbox-option">
                             <input 
                                 type="checkbox" 
                                 id="repeatBroadcast"
                             >
-                            <span class="ml-2">Повторить рассылку после отправки одного сообщения во все чаты</span>
+                            <span>Повторить рассылку после отправки одного сообщения во все чаты</span>
                         </label>
                         
-                        <div class="flex items-center ml-7 mt-2" id="repeat-interval-container" style="display: none;">
-                            <span class="mr-2">Пауза перед следующей отправкой от:</span>
+                        <div class="repeat-interval" id="repeat-interval-container">
+                            <span>Пауза перед следующей отправкой от:</span>
                             <input 
                                 type="number" 
                                 id="waitMin"
                                 min="1" 
-                                class="form-control w-16"
+                                class="number-input"
                                 value="1"
                             >
-                            <span class="mx-2">до:</span>
+                            <span>до:</span>
                             <input 
                                 type="number" 
                                 id="waitMax"
                                 min="1" 
-                                class="form-control w-16"
+                                class="number-input"
                                 value="1"
                             >
-                            <span class="ml-2">мин.</span>
+                            <span>мин.</span>
                         </div>
                     </div>
                 </div>
         
                 <!-- Account Selection -->
-                <div class="form-group mb-6 border-t pt-4">
-                    <label class="block mb-2">
-                        Аккаунты, от имени которых будут отправлены сообщения:
-                    </label>
-                    <div id="account-selector" class="bg-blue-500 text-white text-center py-3 rounded cursor-pointer hover:bg-blue-600 mb-4">
-                        Выбрать аккаунты
+                <div class="form-group mb-6">
+                    <div class="account-selection-header">
+                        <label>Аккаунты, от имени которых будут отправлены сообщения:</label>
+                        <button id="account-selector" class="select-accounts-btn">
+                            Выбрать аккаунты
+                        </button>
                     </div>
                     
-                    <div id="selected-accounts-container" class="grid grid-cols-2 gap-4">
+                    <div id="selected-accounts-container" class="selected-accounts">
                         <!-- Selected accounts will be displayed here -->
                     </div>
                 </div>
         
                 <!-- Additional Settings -->
                 <div class="form-group mb-6">
-                    <div class="flex flex-col space-y-2">
-                        <label class="inline-flex items-center">
+                    <div class="checkbox-options">
+                        <label class="checkbox-option">
                             <input 
                                 type="checkbox" 
                                 id="hideSource"
                             >
-                            <span class="ml-2">Скрывать источник пересылки</span>
+                            <span>Скрывать источник пересылки</span>
                         </label>
                         
-                        <label class="inline-flex items-center">
+                        <label class="checkbox-option">
                             <input 
                                 type="checkbox" 
                                 id="processAfterPost"
                             >
-                            <span class="ml-2">После размещения поста проверять не удален ли он (снижает скорость работы задачи)</span>
+                            <span>После размещения поста проверять не удален ли он (снижает скорость работы задачи)</span>
                         </label>
                         
-                        <label class="inline-flex items-center">
+                        <label class="checkbox-option">
                             <input 
                                 type="checkbox" 
                                 id="deleteAfter"
                             >
-                            <span class="ml-2">Удалять отправленные посты через:</span>
+                            <span>Удалять отправленные посты через:</span>
                         </label>
                         
-                        <label class="inline-flex items-center">
+                        <label class="checkbox-option">
                             <input 
                                 type="checkbox" 
                                 id="leaveChats"
                             >
-                            <span class="ml-2">Аккаунтам выйти из всех чатов</span>
+                            <span>Аккаунтам выйти из всех чатов</span>
                         </label>
                         
-                        <label class="inline-flex items-center">
+                        <label class="checkbox-option">
                             <input 
                                 type="checkbox" 
                                 id="useFloodCheck"
                             >
-                            <span class="ml-2">В случае PEER_FLOOD_ERROR вместо отметки проверять через @spambot (только для премиума)</span>
+                            <span>В случае PEER_FLOOD_ERROR вместо отметки проверять через @spambot (только для премиума)</span>
                         </label>
                     </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" data-close-modal="enhanced-broadcaster-modal">Отмена</button>
+                <div class="create-buttons">
+                    <button id="create-task-btn" class="create-btn">Создать задачу</button>
+                    <button id="create-and-run-task-btn" class="create-run-btn">Создать и запустить</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Account Selection Modal -->
+        <div class="modal" id="account-selection-modal">
+            <div class="modal-header">
+                <h3>Выбор аккаунтов</h3>
+                <button class="btn-close" data-close-modal="account-selection-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="account-filter-container">
+                    <label for="account-filter">Фильтр списка:</label>
+                    <select id="account-filter" class="account-filter">
+                        <option value="all">Все аккаунты</option>
+                        <!-- Other options will be loaded dynamically -->
+                    </select>
+                </div>
+                
+                <div id="accounts-list" class="accounts-selection-list">
+                    <!-- Accounts will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" data-close-modal="account-selection-modal">Отмена</button>
+                <button id="confirm-accounts-btn" class="confirm-btn">Подтвердить выбор</button>
+            </div>
+        </div>
+        
+        <!-- Document Upload Modal -->
+        <div class="modal" id="document-upload-modal">
+            <div class="modal-header">
+                <h3>Добавить документ или изображение</h3>
+                <button class="btn-close" data-close-modal="document-upload-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="document-upload-area" class="document-upload-area">
+                    <i class="fas fa-file-upload"></i>
+                    <h4>Перетащите файл сюда</h4>
+                    <p>или</p>
+                    <button class="browse-btn">Выбрать файл</button>
+                    <input type="file" id="document-file-input" class="hidden-input">
+                </div>
+                
+                <div id="document-preview" class="document-preview">
+                    <div class="document-info">
+                        <i id="document-icon" class="fas fa-file"></i>
+                        <div class="document-details">
+                            <div id="document-name" class="document-name">filename.jpg</div>
+                            <div id="document-size" class="document-size">123 KB</div>
+                        </div>
+                    </div>
+                    <button id="remove-document-btn" class="remove-document-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn" data-close-modal="document-upload-modal">Отмена</button>
+                <button id="add-document-confirm-btn" class="confirm-btn">Добавить</button>
+            </div>
+        </div>
+        
+        <!-- Proxy Warning Overlay -->
+        <div id="proxy-warning-overlay" class="proxy-warning-overlay">
+            <div class="proxy-warning-popup">
+                <div class="proxy-warning-content">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Внимание!</h3>
+                    <p>Некоторые выбранные аккаунты не имеют прокси. Это может привести к блокировке аккаунтов Telegram.</p>
+                    <p>Рекомендуется назначить прокси всем аккаунтам перед выполнением рассылки.</p>
+                    <button id="proxy-warning-confirm-btn" class="warning-confirm-btn">Я понимаю риски</button>
                 </div>
             </div>
         </div>

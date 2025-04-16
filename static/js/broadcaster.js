@@ -245,11 +245,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Initialize everything
   function init() {
+    injectStyles();
     loadAccountLists();
-    loadGroupLists();
     loadTasks();
     attachEventListeners();
-    updateStatsCounters(); // Update the counters on page load
+    updateStatsCounters();
   }
   
   // Load account lists and populate dropdowns
@@ -260,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Populate account filter dropdown
     if (elements.accountFilter) {
-      let options = '<option value="all">All Accounts</option>';
+      let options = '<option value="all">Все аккаунты</option>';
       lists.forEach(list => {
         options += `<option value="${list.id}">${list.name}</option>`;
       });
@@ -306,8 +306,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
     
     elements.taskListContainer.innerHTML = state.tasks.map(task => {
-      const startedDate = task.startedAt ? new Date(task.startedAt).toLocaleString() : 'Not started';
-      const completedDate = task.completedAt ? new Date(task.completedAt).toLocaleString() : 'Not completed';
+      const startedDate = task.startedAt ? new Date(task.startedAt).toLocaleString() : 'Не запущена';
+      const completedDate = task.completedAt ? new Date(task.completedAt).toLocaleString() : 'Не завершена';
       
       const progress = task.progress || { total: 0, completed: 0, errors: 0 };
       const progressPercentage = progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
@@ -317,61 +317,61 @@ document.addEventListener("DOMContentLoaded", function() {
       
       switch (task.status) {
         case 'created':
-          statusBadge = '<span class="status-badge unverified">Created</span>';
+          statusBadge = '<span class="status-badge unverified">Создана</span>';
           actionButtons = `
-            <button class="btn btn-icon btn-text start-task-btn" data-id="${task.id}" title="Start task">
+            <button class="btn btn-icon btn-text start-task-btn" data-id="${task.id}" title="Запустить задачу">
               <i class="fas fa-play"></i>
             </button>
-            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Delete task">
+            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Удалить задачу">
               <i class="fas fa-trash"></i>
             </button>
           `;
           break;
         case 'running':
-          statusBadge = '<span class="status-badge ok">Running</span>';
+          statusBadge = '<span class="status-badge ok">Выполняется</span>';
           actionButtons = `
-            <button class="btn btn-icon btn-text stop-task-btn" data-id="${task.id}" title="Stop task">
+            <button class="btn btn-icon btn-text stop-task-btn" data-id="${task.id}" title="Остановить задачу">
               <i class="fas fa-stop"></i>
             </button>
           `;
           break;
         case 'completed':
-          statusBadge = '<span class="status-badge ok">Completed</span>';
+          statusBadge = '<span class="status-badge ok">Завершена</span>';
           actionButtons = `
-            <button class="btn btn-icon btn-text restart-task-btn" data-id="${task.id}" title="Restart task">
+            <button class="btn btn-icon btn-text restart-task-btn" data-id="${task.id}" title="Перезапустить задачу">
               <i class="fas fa-redo"></i>
             </button>
-            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Delete task">
+            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Удалить задачу">
               <i class="fas fa-trash"></i>
             </button>
           `;
           break;
         case 'stopped':
-          statusBadge = '<span class="status-badge temp-block">Stopped</span>';
+          statusBadge = '<span class="status-badge temp-block">Остановлена</span>';
           actionButtons = `
-            <button class="btn btn-icon btn-text restart-task-btn" data-id="${task.id}" title="Restart task">
+            <button class="btn btn-icon btn-text restart-task-btn" data-id="${task.id}" title="Перезапустить задачу">
               <i class="fas fa-redo"></i>
             </button>
-            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Delete task">
+            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Удалить задачу">
               <i class="fas fa-trash"></i>
             </button>
           `;
           break;
         case 'error':
-          statusBadge = '<span class="status-badge blocked">Error</span>';
+          statusBadge = '<span class="status-badge blocked">Ошибка</span>';
           actionButtons = `
-            <button class="btn btn-icon btn-text restart-task-btn" data-id="${task.id}" title="Restart task">
+            <button class="btn btn-icon btn-text restart-task-btn" data-id="${task.id}" title="Перезапустить задачу">
               <i class="fas fa-redo"></i>
             </button>
-            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Delete task">
+            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Удалить задачу">
               <i class="fas fa-trash"></i>
             </button>
           `;
           break;
         default:
-          statusBadge = `<span class="status-badge unverified">${task.status || 'Unknown'}</span>`;
+          statusBadge = `<span class="status-badge unverified">${task.status || 'Неизвестно'}</span>`;
           actionButtons = `
-            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Delete task">
+            <button class="btn btn-icon btn-danger delete-task-btn" data-id="${task.id}" title="Удалить задачу">
               <i class="fas fa-trash"></i>
             </button>
           `;
@@ -383,7 +383,14 @@ document.addEventListener("DOMContentLoaded", function() {
             <div class="task-info">
               <div class="task-name">${task.name}</div>
               <div class="task-details">
-                Mode: ${task.mode}, Work mode: ${task.workMode}
+                Режим: ${
+                  task.mode === 'single' ? 'Одно сообщение' : 
+                  task.mode === 'file' ? 'Сообщения из файла' : 
+                  'Репосты из канала'
+                }, 
+                Способ: ${
+                  task.workMode === 'group' ? 'В группу чатов' : 'В один чат'
+                }
               </div>
             </div>
           </td>
@@ -391,17 +398,17 @@ document.addEventListener("DOMContentLoaded", function() {
             ${statusBadge}
           </td>
           <td>
-            <div>Created: ${new Date(task.createdAt).toLocaleString()}</div>
-            <div>Started: ${startedDate}</div>
-            <div>Completed: ${completedDate}</div>
+            <div>Создана: ${new Date(task.createdAt).toLocaleString()}</div>
+            <div>Запущена: ${startedDate}</div>
+            <div>Завершена: ${completedDate}</div>
           </td>
           <td>
             <div class="task-progress">
-              <div>Progress: ${progress.completed}/${progress.total}</div>
+              <div>Прогресс: ${progress.completed}/${progress.total}</div>
               <div class="progress-bar">
                 <div class="progress-fill" style="width: ${progressPercentage}%"></div>
               </div>
-              <div>Errors: ${progress.errors}</div>
+              <div>Ошибок: ${progress.errors}</div>
             </div>
           </td>
           <td>
@@ -424,12 +431,16 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!taskId) return;
         
         button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
         const result = await api.startTask(taskId);
-        button.disabled = false;
         
         if (result && result.success) {
-          showToast('Task started successfully', 'success');
+          showToast('Задача успешно запущена', 'success');
           await loadTasks();
+        } else {
+          button.disabled = false;
+          button.innerHTML = '<i class="fas fa-play"></i>';
         }
       });
     });
@@ -440,12 +451,16 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!taskId) return;
         
         button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
         const result = await api.stopTask(taskId);
-        button.disabled = false;
         
         if (result && result.success) {
-          showToast('Task stopped successfully', 'success');
+          showToast('Задача остановлена', 'success');
           await loadTasks();
+        } else {
+          button.disabled = false;
+          button.innerHTML = '<i class="fas fa-stop"></i>';
         }
       });
     });
@@ -456,12 +471,16 @@ document.addEventListener("DOMContentLoaded", function() {
         if (!taskId) return;
         
         button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
         const result = await api.startTask(taskId);
-        button.disabled = false;
         
         if (result && result.success) {
-          showToast('Task restarted successfully', 'success');
+          showToast('Задача перезапущена', 'success');
           await loadTasks();
+        } else {
+          button.disabled = false;
+          button.innerHTML = '<i class="fas fa-redo"></i>';
         }
       });
     });
@@ -471,15 +490,19 @@ document.addEventListener("DOMContentLoaded", function() {
         const taskId = button.dataset.id;
         if (!taskId) return;
         
-        if (!confirm('Are you sure you want to delete this task?')) return;
+        if (!confirm('Вы уверены, что хотите удалить эту задачу?')) return;
         
         button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
         const result = await api.deleteTask(taskId);
-        button.disabled = false;
         
         if (result && result.success) {
-          showToast('Task deleted successfully', 'success');
+          showToast('Задача удалена', 'success');
           await loadTasks();
+        } else {
+          button.disabled = false;
+          button.innerHTML = '<i class="fas fa-trash"></i>';
         }
       });
     });
@@ -515,12 +538,37 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     });
     
-    // Update the counters
-    if (elements.todayCounter) elements.todayCounter.textContent = todayCount;
-    if (elements.yesterdayCounter) elements.yesterdayCounter.textContent = yesterdayCount;
-    if (elements.totalCounter) elements.totalCounter.textContent = totalCount;
+    // Animate the counters
+    animateCounter(elements.todayCounter, todayCount);
+    animateCounter(elements.yesterdayCounter, yesterdayCount);
+    animateCounter(elements.totalCounter, totalCount);
   }
-
+  function animateCounter(element, targetValue) {
+    if (!element) return;
+    
+    const duration = 1000;
+    const startValue = parseInt(element.textContent) || 0;
+    const startTime = performance.now();
+    
+    function updateCounter(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Use easeOutExpo for smooth animation
+      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      
+      const currentValue = Math.floor(startValue + (targetValue - startValue) * easeProgress);
+      element.textContent = currentValue;
+      
+      if (progress < 1) {
+        requestAnimationFrame(updateCounter);
+      } else {
+        element.textContent = targetValue;
+      }
+    }
+    
+    requestAnimationFrame(updateCounter);
+  }
   // Attach event listeners
   function attachEventListeners() {
     // New task button
@@ -528,6 +576,14 @@ document.addEventListener("DOMContentLoaded", function() {
       elements.newTaskBtn.addEventListener('click', () => {
         showModal('enhanced-broadcaster-modal');
       });
+      
+      // Also wire up the empty state button
+      const emptyAddTaskBtn = document.getElementById('empty-add-task-btn');
+      if (emptyAddTaskBtn) {
+        emptyAddTaskBtn.addEventListener('click', () => {
+          showModal('enhanced-broadcaster-modal');
+        });
+      }
     }
     
     // Refresh tasks button
@@ -584,11 +640,20 @@ document.addEventListener("DOMContentLoaded", function() {
       });
     }
 
-    // Confirm accounts
+    // Confirm accounts with improved UI feedback
     if (elements.confirmAccountsBtn) {
       elements.confirmAccountsBtn.addEventListener('click', () => {
         hideModal('account-selection-modal');
         renderSelectedAccounts();
+        
+        // Update the select accounts button appearance
+        if (state.selectedAccounts.length > 0) {
+          elements.accountSelectorBtn.textContent = `Выбрано ${state.selectedAccounts.length} аккаунтов`;
+          elements.accountSelectorBtn.classList.add('accounts-selected');
+        } else {
+          elements.accountSelectorBtn.textContent = 'Выбрать аккаунты';
+          elements.accountSelectorBtn.classList.remove('accounts-selected');
+        }
       });
     }
 
@@ -618,14 +683,14 @@ document.addEventListener("DOMContentLoaded", function() {
       });
     }
 
-    // Create task
+    // Create task button
     if (elements.createTaskBtn) {
       elements.createTaskBtn.addEventListener('click', () => {
         createTask(false);
       });
     }
 
-    // Create and run task
+    // Create and run task button
     if (elements.createAndRunTaskBtn) {
       elements.createAndRunTaskBtn.addEventListener('click', () => {
         createTask(true);
@@ -683,6 +748,14 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
     }
+    
+    // Browse button in document upload modal
+    const browseBtn = document.querySelector('.browse-btn');
+    if (browseBtn && elements.documentFileInput) {
+        browseBtn.addEventListener('click', () => {
+            elements.documentFileInput.click();
+        });
+    }
   }
 
   // Load accounts
@@ -694,7 +767,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Render accounts list
     if (!accounts || !accounts.length) {
-      elements.accountsList.innerHTML = '<div class="p-4 text-center text-gray-500">No accounts found</div>';
+      elements.accountsList.innerHTML = '<div class="empty-accounts-message">Нет доступных аккаунтов</div>';
       return;
     }
     
@@ -702,21 +775,19 @@ document.addEventListener("DOMContentLoaded", function() {
     accounts.forEach(account => {
       const isSelected = state.selectedAccounts.some(acc => acc.id === account.id);
       html += `
-        <div class="account-card p-3 mb-2 border rounded ${isSelected ? 'bg-blue-50 border-blue-500' : ''}" data-id="${account.id}">
-          <div class="flex items-center">
-            <div class="flex-shrink-0 mr-3">
+        <div class="account-card ${isSelected ? 'selected' : ''}" data-id="${account.id}">
+          <div class="account-card-content">
+            <div class="account-avatar">
               ${account.avatar 
-                ? `<img src="${account.avatar}" alt="${account.name}" class="w-8 h-8 rounded-full">`
-                : `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-                    <i class="fas fa-user"></i>
-                  </div>`
+                ? `<img src="${account.avatar}" alt="${account.name}" class="account-avatar-img">`
+                : `<span class="account-avatar-placeholder"><i class="fas fa-user"></i></span>`
               }
             </div>
-            <div class="flex-1">
-              <div class="font-medium">${account.name}</div>
-              <div class="text-sm text-gray-500">${account.phone || ''}</div>
+            <div class="account-details">
+              <div class="account-name">${account.name}</div>
+              <div class="account-phone">${account.phone || ''}</div>
             </div>
-            <div>
+            <div class="account-checkbox-wrapper">
               <input type="checkbox" ${isSelected ? 'checked' : ''} data-id="${account.id}" class="account-checkbox">
             </div>
           </div>
@@ -738,8 +809,7 @@ document.addEventListener("DOMContentLoaded", function() {
         checkbox.checked = !checkbox.checked;
         
         toggleAccountSelection(accountId, checkbox.checked);
-        card.classList.toggle('bg-blue-50');
-        card.classList.toggle('border-blue-500');
+        card.classList.toggle('selected');
       });
     });
     
@@ -750,8 +820,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const card = e.target.closest('.account-card');
         
         toggleAccountSelection(accountId, e.target.checked);
-        card.classList.toggle('bg-blue-50');
-        card.classList.toggle('border-blue-500');
+        card.classList.toggle('selected');
       });
     });
   }
@@ -769,36 +838,31 @@ document.addEventListener("DOMContentLoaded", function() {
       state.selectedAccounts = state.selectedAccounts.filter(acc => acc.id !== accountId);
     }
   }
+  
 
   // Render selected accounts
   function renderSelectedAccounts() {
-    if (!elements.accountSelectorBtn || !elements.selectedAccountsContainer) return;
+    if (!elements.selectedAccountsContainer) return;
     
     if (state.selectedAccounts.length === 0) {
-      elements.accountSelectorBtn.innerHTML = 'Выбрать аккаунты';
-      elements.accountSelectorBtn.classList.add('bg-blue-500');
-      elements.selectedAccountsContainer.innerHTML = '';
+      elements.selectedAccountsContainer.innerHTML = '<div class="no-accounts-selected">Аккаунты не выбраны</div>';
       return;
     }
-    
-    elements.accountSelectorBtn.innerHTML = `Выбрано ${state.selectedAccounts.length} аккаунтов`;
-    elements.accountSelectorBtn.classList.remove('bg-blue-500');
-    elements.accountSelectorBtn.classList.add('bg-green-500');
     
     let html = '';
     state.selectedAccounts.forEach(account => {
       html += `
-        <div class="border p-3 rounded" data-id="${account.id}">
-          <div class="flex items-center">
-            <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 mr-3 overflow-hidden">
+        <div class="selected-account-card" data-id="${account.id}">
+          <div class="selected-account-content">
+            <div class="selected-account-avatar">
               ${account.avatar 
-                ? `<img src="${account.avatar}" alt="${account.name}" class="w-full h-full object-cover">`
-                : `<i class="fas fa-user"></i>`
+                ? `<img src="${account.avatar}" alt="${account.name}" class="selected-account-img">`
+                : `<span class="selected-account-placeholder"><i class="fas fa-user"></i></span>`
               }
             </div>
-            <div>
-              <div class="font-medium">${account.name}</div>
-              <div class="text-sm text-gray-500">${account.phone || ''}</div>
+            <div class="selected-account-details">
+              <div class="selected-account-name">${account.name}</div>
+              <div class="selected-account-phone">${account.phone || ''}</div>
             </div>
           </div>
         </div>
@@ -807,18 +871,19 @@ document.addEventListener("DOMContentLoaded", function() {
     
     elements.selectedAccountsContainer.innerHTML = html;
   }
+  
 
   // Handle document selection
   function handleDocumentSelection(file) {
     if (!elements.documentPreview || !elements.documentName || !elements.documentSize || !elements.documentIcon) return;
     
     if (file.size > 1024 * 1024) {
-      showToast('File size exceeds 1MB limit', 'error');
+      showToast('Размер файла превышает лимит в 1МБ', 'error');
       return;
     }
     
     state.documentFile = file;
-    elements.documentPreview.style.display = 'block';
+    elements.documentPreview.style.display = 'flex';
     elements.documentName.textContent = file.name;
     elements.documentSize.textContent = formatFileSize(file.size);
     
@@ -827,28 +892,65 @@ document.addEventListener("DOMContentLoaded", function() {
     const fileExtension = file.name.split('.').pop().toLowerCase();
     
     if (fileType === 'image') {
-      elements.documentIcon.className = 'fas fa-image mr-3 text-2xl text-blue-500';
+      elements.documentIcon.className = 'fas fa-image text-blue-500';
     } else if (fileExtension === 'pdf') {
-      elements.documentIcon.className = 'fas fa-file-pdf mr-3 text-2xl text-red-500';
+      elements.documentIcon.className = 'fas fa-file-pdf text-red-500';
     } else if (['doc', 'docx'].includes(fileExtension)) {
-      elements.documentIcon.className = 'fas fa-file-word mr-3 text-2xl text-blue-700';
+      elements.documentIcon.className = 'fas fa-file-word text-blue-700';
     } else if (fileExtension === 'txt') {
-      elements.documentIcon.className = 'fas fa-file-alt mr-3 text-2xl text-gray-500';
+      elements.documentIcon.className = 'fas fa-file-alt text-gray-500';
     } else {
-      elements.documentIcon.className = 'fas fa-file mr-3 text-2xl text-gray-500';
+      elements.documentIcon.className = 'fas fa-file text-gray-500';
     }
   }
   
   // Update send mode UI
   function updateSendModeUI() {
     if (!elements.singleMessageContainer) return;
-    elements.singleMessageContainer.style.display = state.sendMode === 'single' ? 'block' : 'none';
+    
+    // Get all mode containers
+    const fileMessageContainer = document.getElementById('file-message-container');
+    const repostMessageContainer = document.getElementById('repost-message-container');
+    
+    // Default: hide all containers
+    if (elements.singleMessageContainer) elements.singleMessageContainer.style.display = 'none';
+    if (fileMessageContainer) fileMessageContainer.style.display = 'none';
+    if (repostMessageContainer) repostMessageContainer.style.display = 'none';
+    
+    // Show the selected container
+    switch (state.sendMode) {
+      case 'single':
+        if (elements.singleMessageContainer) elements.singleMessageContainer.style.display = 'block';
+        break;
+      case 'file':
+        if (fileMessageContainer) fileMessageContainer.style.display = 'block';
+        break;
+      case 'repost':
+        if (repostMessageContainer) repostMessageContainer.style.display = 'block';
+        break;
+    }
   }
   
   // Update work mode UI
   function updateWorkModeUI() {
     if (!elements.groupChatContainer) return;
-    elements.groupChatContainer.style.display = state.workMode === 'group' ? 'block' : 'none';
+    
+    // Get single chat container
+    const singleChatContainer = document.getElementById('single-chat-container');
+    
+    // Default: hide all containers
+    if (elements.groupChatContainer) elements.groupChatContainer.style.display = 'none';
+    if (singleChatContainer) singleChatContainer.style.display = 'none';
+    
+    // Show the selected container
+    switch (state.workMode) {
+      case 'group':
+        if (elements.groupChatContainer) elements.groupChatContainer.style.display = 'block';
+        break;
+      case 'single':
+        if (singleChatContainer) singleChatContainer.style.display = 'block';
+        break;
+    }
   }
   
   // Create task
@@ -863,8 +965,8 @@ document.addEventListener("DOMContentLoaded", function() {
     if (accountsWithoutProxy.length > 0) {
       if (elements.proxyWarningOverlay) {
         elements.proxyWarningOverlay.style.display = 'flex';
+        return;
       }
-      return;
     }
     
     // Upload file if selected
@@ -874,14 +976,14 @@ document.addEventListener("DOMContentLoaded", function() {
       if (fileResult && fileResult.success) {
         fileUrl = fileResult.url;
       } else {
-        showToast('Failed to upload chat list file', 'error');
+        showToast('Не удалось загрузить файл со списком чатов', 'error');
         return;
       }
     }
     
     // Create task data
     const taskData = {
-      name: elements.taskNameInput ? elements.taskNameInput.value : 'My task',
+      name: elements.taskNameInput ? elements.taskNameInput.value : 'Новая задача',
       mode: state.sendMode,
       workMode: state.workMode,
       message: elements.messageTextArea ? elements.messageTextArea.value : '',
@@ -905,7 +1007,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const result = await api.createTask(taskData, autoRun);
     
     if (result && result.success) {
-      showToast(autoRun ? 'Task created and started' : 'Task created successfully', 'success');
+      showToast(autoRun ? 'Задача создана и запущена' : 'Задача успешно создана', 'success');
       hideModal('enhanced-broadcaster-modal');
       
       // Reload tasks
@@ -919,26 +1021,26 @@ document.addEventListener("DOMContentLoaded", function() {
   // Validate inputs
   function validateInputs() {
     if (elements.taskNameInput && !elements.taskNameInput.value.trim()) {
-      showToast('Please enter a task name', 'error');
+      showToast('Пожалуйста, введите название задачи', 'error');
       elements.taskNameInput.focus();
       return false;
     }
     
     if (state.sendMode === 'single' && elements.messageTextArea && !elements.messageTextArea.value.trim()) {
-      showToast('Please enter a message', 'error');
+      showToast('Пожалуйста, введите текст сообщения', 'error');
       elements.messageTextArea.focus();
       return false;
     }
     
     if (state.selectedAccounts.length === 0) {
-      showToast('Please select at least one account', 'error');
+      showToast('Пожалуйста, выберите хотя бы один аккаунт', 'error');
       return false;
     }
     
     if (state.workMode === 'group' && elements.chatCountInput) {
       const chatCount = parseInt(elements.chatCountInput.value);
       if (isNaN(chatCount) || chatCount < 1 || chatCount > 30) {
-        showToast('Chat count must be between 1 and 30', 'error');
+        showToast('Количество чатов должно быть от 1 до 30', 'error');
         elements.chatCountInput.focus();
         return false;
       }
@@ -949,13 +1051,13 @@ document.addEventListener("DOMContentLoaded", function() {
       const waitMax = elements.waitMaxInput ? parseInt(elements.waitMaxInput.value) : 0;
       
       if (isNaN(waitMin) || waitMin < 1) {
-        showToast('Minimum wait time must be at least 1 minute', 'error');
+        showToast('Минимальное время ожидания должно быть не менее 1 минуты', 'error');
         elements.waitMinInput.focus();
         return false;
       }
       
       if (isNaN(waitMax) || waitMax < waitMin) {
-        showToast('Maximum wait time must be greater than or equal to minimum', 'error');
+        showToast('Максимальное время ожидания должно быть больше или равно минимальному', 'error');
         elements.waitMaxInput.focus();
         return false;
       }
@@ -964,9 +1066,10 @@ document.addEventListener("DOMContentLoaded", function() {
     return true;
   }
   
+  
   // Reset form
   function resetForm() {
-    if (elements.taskNameInput) elements.taskNameInput.value = 'My task';
+    if (elements.taskNameInput) elements.taskNameInput.value = 'Новая задача';
     if (elements.messageTextArea) elements.messageTextArea.value = '[Здравствуйте]/[Добрый день]/[Доброго времени суток]. Увидел вас в чате...';
     if (elements.chatCountInput) elements.chatCountInput.value = '6';
     if (elements.waitMinInput) elements.waitMinInput.value = '1';
@@ -987,7 +1090,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Reset selected file
     state.selectedFile = null;
-    if (elements.selectedFileName) elements.selectedFileName.textContent = 'No file chosen';
+    if (elements.selectedFileName) elements.selectedFileName.textContent = 'Файл не выбран';
     if (elements.chatLinksFileInput) elements.chatLinksFileInput.value = '';
     
     // Reset document
@@ -998,11 +1101,18 @@ document.addEventListener("DOMContentLoaded", function() {
     state.selectedAccounts = [];
     renderSelectedAccounts();
     
+    // Reset account selector button
+    if (elements.accountSelectorBtn) {
+      elements.accountSelectorBtn.textContent = 'Выбрать аккаунты';
+      elements.accountSelectorBtn.classList.remove('accounts-selected');
+    }
+    
     // Reset UI
     updateSendModeUI();
     updateWorkModeUI();
     if (elements.repeatIntervalContainer) elements.repeatIntervalContainer.style.display = 'none';
   }
+  
   
   // Show modal
   function showModal(modalId) {
@@ -1013,18 +1123,421 @@ document.addEventListener("DOMContentLoaded", function() {
       modalContainer.classList.add('active');
       modal.classList.add('active');
       document.body.style.overflow = 'hidden';
+      
+      // Add fade-in animation
+      modal.style.opacity = '0';
+      modal.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        modal.style.opacity = '1';
+        modal.style.transform = 'translateY(0)';
+      }, 10);
     }
   }
-  
+  function injectStyles() {
+    const broadcasterStyles = document.createElement('style');
+    broadcasterStyles.textContent = `
+      /* Enhanced Broadcaster Modal Styles */
+      /* These styles improve the modal appearance and functionality */
+      
+      /* Wider modal */
+      .wider-modal {
+          max-width: 700px !important;
+          width: 90% !important;
+      }
+      
+      /* Input container */
+      .input-container {
+          position: relative;
+          width: 100%;
+      }
+      
+      /* File upload container */
+      .file-upload-container {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+      }
+      
+      .file-upload-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 16px;
+          background-color: var(--primary-color);
+          color: white;
+          border-radius: var(--border-radius);
+          cursor: pointer;
+          font-weight: 500;
+          transition: var(--transition);
+      }
+      
+      .file-upload-btn:hover {
+          background-color: var(--primary-hover);
+      }
+      
+      .file-name {
+          color: var(--text-light);
+      }
+      
+      .hidden-input {
+          display: none;
+      }
+      
+      /* Radio and checkbox options */
+      .radio-options, .checkbox-options {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+      }
+      
+      .radio-option, .checkbox-option {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          cursor: pointer;
+      }
+      
+      .radio-option input, .checkbox-option input {
+          margin-top: 3px;
+      }
+      
+      /* Message container */
+      .message-container {
+          margin-left: 24px;
+          margin-top: 8px;
+          margin-bottom: 12px;
+      }
+      
+      .message-textarea {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid var(--border-color);
+          border-radius: var(--border-radius);
+          resize: vertical;
+          min-height: 100px;
+          font-family: inherit;
+          font-size: inherit;
+          transition: var(--transition);
+      }
+      
+      .message-textarea:focus {
+          outline: none;
+          border-color: var(--primary-color);
+          box-shadow: 0 0 0 2px rgba(62, 142, 208, 0.2);
+      }
+      
+      .document-btn-container {
+          display: flex;
+          justify-content: flex-end;
+          margin-top: 8px;
+      }
+      
+      .document-btn {
+          background: none;
+          border: none;
+          color: var(--primary-color);
+          cursor: pointer;
+          font-size: 13px;
+          padding: 6px 10px;
+          border-radius: var(--border-radius);
+          transition: var(--transition);
+      }
+      
+      .document-btn:hover {
+          background-color: rgba(62, 142, 208, 0.1);
+      }
+      
+      /* Chat count container */
+      .chat-count-container {
+          margin-left: 24px;
+          margin-top: 8px;
+          margin-bottom: 12px;
+      }
+      
+      .chat-count-input {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+      }
+      
+      .number-input {
+          width: 60px;
+          padding: 6px 8px;
+          border: 1px solid var(--border-color);
+          border-radius: var(--border-radius);
+          transition: var(--transition);
+      }
+      
+      .number-input:focus {
+          outline: none;
+          border-color: var(--primary-color);
+          box-shadow: 0 0 0 2px rgba(62, 142, 208, 0.2);
+      }
+      
+      .help-text {
+          font-size: 12px;
+          color: var(--text-light);
+          margin-top: 6px;
+          margin-left: 4px;
+      }
+      
+      /* Repeat interval */
+      .repeat-interval {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-left: 24px;
+          margin-top: 8px;
+          padding: 8px 12px;
+          background-color: rgba(0, 0, 0, 0.02);
+          border-radius: var(--border-radius);
+      }
+      
+      /* Account selection */
+      .account-selection-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 15px;
+          padding-top: 15px;
+          border-top: 1px solid var(--border-color);
+      }
+      
+      .select-accounts-btn {
+          background-color: var(--primary-color);
+          color: white;
+          padding: 8px 16px;
+          border: none;
+          border-radius: var(--border-radius);
+          font-weight: 500;
+          cursor: pointer;
+          transition: var(--transition);
+      }
+      
+      .select-accounts-btn:hover {
+          background-color: var(--primary-hover);
+      }
+      
+      .select-accounts-btn.accounts-selected {
+          background-color: var(--success-color);
+      }
+      
+      .selected-accounts {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          gap: 12px;
+          margin-top: 15px;
+      }
+      
+      .empty-accounts-message {
+        padding: 30px 20px;
+        text-align: center;
+        color: var(--text-light);
+      }
+      
+      .no-accounts-selected {
+        padding: 15px;
+        text-align: center;
+        color: var(--text-light);
+        font-style: italic;
+      }
+      
+      /* Account selection modal */
+      .account-filter-container {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 15px;
+      }
+      
+      .account-filter {
+          flex: 1;
+          padding: 8px 12px;
+          border: 1px solid var(--border-color);
+          border-radius: var(--border-radius);
+      }
+      
+      .accounts-selection-list {
+          max-height: 400px;
+          overflow-y: auto;
+          border: 1px solid var(--border-color);
+          border-radius: var(--border-radius);
+          padding: 10px;
+      }
+      
+      .account-card {
+          padding: 10px;
+          border-radius: var(--border-radius);
+          border: 1px solid var(--border-color);
+          margin-bottom: 8px;
+          transition: var(--transition);
+          cursor: pointer;
+      }
+      
+      .account-card:hover {
+          border-color: var(--primary-color);
+          background-color: rgba(62, 142, 208, 0.05);
+      }
+      
+      .account-card.selected {
+          border-color: var(--primary-color);
+          background-color: rgba(62, 142, 208, 0.1);
+      }
+      
+      .account-card-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .account-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        background-color: var(--light-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .account-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .account-avatar-placeholder {
+        color: var(--text-light);
+      }
+      
+      .account-details {
+        flex: 1;
+      }
+      
+      .account-name {
+        font-weight: 500;
+      }
+      
+      .account-phone {
+        font-size: 12px;
+        color: var(--text-light);
+      }
+      
+      .account-checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .selected-account-card {
+        padding: 10px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+        transition: var(--transition);
+      }
+      
+      .selected-account-card:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+      }
+      
+      .selected-account-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .selected-account-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        background-color: var(--light-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .selected-account-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      
+      .selected-account-placeholder {
+        color: var(--text-light);
+      }
+      
+      .selected-account-details {
+        flex: 1;
+      }
+      
+      .selected-account-name {
+        font-weight: 500;
+      }
+      
+      .selected-account-phone {
+        font-size: 12px;
+        color: var(--text-light);
+      }
+      
+      /* Dark theme adjustments */
+      [data-theme="dark"] .document-upload-area {
+          background-color: var(--bg-white);
+      }
+      
+      [data-theme="dark"] .repeat-interval {
+          background-color: rgba(255, 255, 255, 0.05);
+      }
+      
+      [data-theme="dark"] .document-btn:hover {
+          background-color: rgba(62, 142, 208, 0.2);
+      }
+      
+      [data-theme="dark"] .remove-document-btn:hover {
+          background-color: rgba(241, 70, 104, 0.2);
+      }
+      
+      [data-theme="dark"] .cancel-btn:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+      }
+      
+      [data-theme="dark"] .account-card:hover {
+          background-color: rgba(62, 142, 208, 0.15);
+      }
+      
+      [data-theme="dark"] .account-card.selected {
+          background-color: rgba(62, 142, 208, 0.2);
+      }
+      
+      [data-theme="dark"] .selected-account-card:hover {
+          background-color: rgba(255, 255, 255, 0.05);
+      }
+    `;
+    document.head.appendChild(broadcasterStyles);
+  }
   // Hide modal
   function hideModal(modalId) {
     const modalContainer = document.getElementById('modal-container');
     const modal = document.getElementById(modalId);
     
     if (modalContainer && modal) {
-      modalContainer.classList.remove('active');
-      modal.classList.remove('active');
-      document.body.style.overflow = '';
+      // Add fade-out animation
+      modal.style.opacity = '0';
+      modal.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        modalContainer.classList.remove('active');
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+        
+        // Reset the styles after animation
+        setTimeout(() => {
+          modal.style.opacity = '';
+          modal.style.transform = '';
+        }, 300);
+      }, 200);
     }
   }
   
@@ -1045,14 +1558,16 @@ document.addEventListener("DOMContentLoaded", function() {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            padding: 10px 20px;
-            border-radius: 4px;
+            padding: 12px 24px;
+            border-radius: 8px;
             color: white;
             font-weight: 500;
             z-index: 9999;
             transform: translateY(100px);
             opacity: 0;
             transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 300px;
           }
           #toast.visible {
             transform: translateY(0);
@@ -1061,13 +1576,36 @@ document.addEventListener("DOMContentLoaded", function() {
           #toast.info { background-color: var(--primary-color); }
           #toast.success { background-color: var(--success-color); }
           #toast.error { background-color: var(--danger-color); }
-          #toast.warning { background-color: #f2994a; }
+          #toast.warning { background-color: #f39c12; }
+          
+          /* Dark theme adjustments */
+          [data-theme="dark"] #toast {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          }
         `;
         document.head.appendChild(style);
       }
     }
     
-    toast.textContent = message;
+    // Add icon based on type
+    let icon = '';
+    switch (type) {
+      case 'success':
+        icon = '<i class="fas fa-check-circle mr-2"></i>';
+        break;
+      case 'error':
+        icon = '<i class="fas fa-exclamation-circle mr-2"></i>';
+        break;
+      case 'warning':
+        icon = '<i class="fas fa-exclamation-triangle mr-2"></i>';
+        break;
+      case 'info':
+      default:
+        icon = '<i class="fas fa-info-circle mr-2"></i>';
+        break;
+    }
+    
+    toast.innerHTML = icon + message;
     toast.className = type;
     
     setTimeout(() => {
@@ -1082,11 +1620,11 @@ document.addEventListener("DOMContentLoaded", function() {
   // Format file size
   function formatFileSize(bytes) {
     if (bytes < 1024) {
-      return bytes + ' bytes';
+      return bytes + ' байт';
     } else if (bytes < 1024 * 1024) {
-      return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024).toFixed(1) + ' КБ';
     } else {
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' МБ';
     }
   }
   
