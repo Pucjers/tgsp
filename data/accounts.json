@@ -1,16 +1,16 @@
 [
   {
-    "id": "a7238d4b-e9f7-4231-b902-c6224f2a8545",
+    "id": "dbeed8f0-79f4-4db4-afce-965b78c6abb5",
     "phone": "+2349067732475",
     "name": "Ror",
     "username": "",
     "avatar": null,
-    "status": "\u041d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d",
+    "status": "\u041e\u043a",
     "limits": {
       "daily_invites": 30,
       "daily_messages": 50
     },
-    "created_at": "2025-04-16T12:26:58.160465",
+    "created_at": "2025-04-16T12:52:11.722089",
     "cooldown_until": null,
     "list_id": "main",
     "premium": false,

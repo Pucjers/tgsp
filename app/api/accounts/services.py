@@ -18,7 +18,7 @@ from app.utils.file_utils import (
     save_accounts_meta,
     update_account_proxy
 )
-
+from app.api.proxies.services import get_proxies, save_proxies
 # Setup a basic logger for use outside application context
 logger = logging.getLogger(__name__)
 
@@ -285,7 +285,7 @@ def update_existing_account(account_id: str, data: Dict[str, Any]) -> Optional[D
 
 def delete_account_by_id(account_id: str) -> bool:
     """
-    Delete an account by ID
+    Delete an account by ID and remove its proxy association
     
     Args:
         account_id: ID of the account to delete
@@ -294,13 +294,26 @@ def delete_account_by_id(account_id: str) -> bool:
         True if account was deleted, False if not found
     """
     accounts = get_accounts()
+    proxies = get_proxies()
     
-    initial_count = len(accounts)
-    accounts = [acc for acc in accounts if acc['id'] != account_id]
-    
-    if len(accounts) == initial_count:
+    # Find the account to get its proxy_id before deletion
+    account = next((acc for acc in accounts if acc['id'] == account_id), None)
+    if not account:
         return False
     
+    # Check if account has a proxy association
+    proxy_id = account.get('proxy_id')
+    if proxy_id:
+        # Find the proxy and remove the account from its accounts list
+        proxy_index = next((i for i, p in enumerate(proxies) if p['id'] == proxy_id), None)
+        if proxy_index is not None:
+            if 'accounts' in proxies[proxy_index] and account_id in proxies[proxy_index]['accounts']:
+                proxies[proxy_index]['accounts'].remove(account_id)
+                # Save proxies with updated accounts list
+                save_proxies(proxies)
+    
+    # Remove the account
+    accounts = [acc for acc in accounts if acc['id'] != account_id]
     save_accounts(accounts)
     
     return True
@@ -308,7 +321,7 @@ def delete_account_by_id(account_id: str) -> bool:
 
 def bulk_delete_accounts(account_ids: List[str]) -> Dict[str, int]:
     """
-    Delete multiple accounts by their IDs
+    Delete multiple accounts by their IDs and remove their proxy associations
     
     Args:
         account_ids: List of account IDs to delete
@@ -317,7 +330,28 @@ def bulk_delete_accounts(account_ids: List[str]) -> Dict[str, int]:
         Dictionary with the number of deleted accounts
     """
     accounts = get_accounts()
+    proxies = get_proxies()
+    proxies_updated = False
     
+    # Find accounts to delete and their proxy associations
+    accounts_to_delete = [acc for acc in accounts if acc['id'] in account_ids]
+    
+    # Update proxy associations
+    for account in accounts_to_delete:
+        proxy_id = account.get('proxy_id')
+        if proxy_id:
+            # Find the proxy and remove the account from its accounts list
+            proxy_index = next((i for i, p in enumerate(proxies) if p['id'] == proxy_id), None)
+            if proxy_index is not None:
+                if 'accounts' in proxies[proxy_index] and account['id'] in proxies[proxy_index]['accounts']:
+                    proxies[proxy_index]['accounts'].remove(account['id'])
+                    proxies_updated = True
+    
+    # Save updated proxies if needed
+    if proxies_updated:
+        save_proxies(proxies)
+    
+    # Delete the accounts
     initial_count = len(accounts)
     accounts = [acc for acc in accounts if acc['id'] not in account_ids]
     
@@ -327,7 +361,6 @@ def bulk_delete_accounts(account_ids: List[str]) -> Dict[str, int]:
         save_accounts(accounts)
     
     return {"deleted_count": deleted_count}
-
 
 def move_accounts(account_ids: List[str], target_list_id: str, action: str = 'move') -> Dict[str, int]:
     """

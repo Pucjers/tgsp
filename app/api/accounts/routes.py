@@ -10,6 +10,7 @@ import os
 import datetime
 import uuid
 import tempfile
+import json
 from werkzeug.utils import secure_filename
 
 from app.api.accounts import accounts_bp
@@ -48,7 +49,7 @@ from app.services.account_integration import (
 def get_accounts():
     """Get all accounts, optionally filtered by list_id"""
     list_id = request.args.get('list_id', 'all')
-    return jsonify(get_filtered_accounts(list_id))
+    return get_filtered_accounts(list_id)
 
 @accounts_bp.route('/import-session', methods=['POST'])
 def import_session():
@@ -195,35 +196,46 @@ def import_session():
     except Exception as e:
         current_app.logger.error(f"Error in import_session: {str(e)}")
         return jsonify({"error": f"Error importing session: {str(e)}"}), 500
-
+    
 @accounts_bp.route('/import-tdata-zip', methods=['POST'])
 def import_tdata_zip_route():
     """Import account from TData ZIP file"""
+    current_app.logger.info("Starting TData ZIP import process")
+    
     if not OPENTELE_AVAILABLE:
+        current_app.logger.error("TData import is not supported (OpenTele missing)")
         return jsonify({"error": "TData import is not supported in this installation"}), 400
     
     if 'tdata_zip' not in request.files:
+        current_app.logger.error("No TData file provided in the request")
         return jsonify({"error": "No TData file provided"}), 400
     
     tdata_zip = request.files['tdata_zip']
     if tdata_zip.filename == '':
+        current_app.logger.error("Empty filename for TData file")
         return jsonify({"error": "No TData file selected"}), 400
     
     if not tdata_zip.filename.endswith('.zip'):
+        current_app.logger.error(f"Invalid file extension: {tdata_zip.filename}")
         return jsonify({"error": "File must be a .zip file"}), 400
     
     target_list_id = request.form.get('target_list_id', 'main')
     proxy_id = request.form.get('proxy_id')
     
+    current_app.logger.info(f"Import parameters: target_list_id={target_list_id}, proxy_id={proxy_id}")
+    
     if not proxy_id:
+        current_app.logger.error("No proxy ID provided")
         return jsonify({"error": "Proxy ID is required"}), 400
     
     proxy = get_proxy_by_id(proxy_id)
     if not proxy:
+        current_app.logger.error(f"Proxy with ID {proxy_id} not found")
         return jsonify({"error": "Proxy not found"}), 404
     
     proxy_accounts = proxy.get('accounts', [])
     if len(proxy_accounts) >= 3:
+        current_app.logger.error(f"Proxy {proxy_id} has reached max accounts: {len(proxy_accounts)}")
         return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
     
     proxy_config = configure_proxy(proxy)
@@ -232,51 +244,69 @@ def import_tdata_zip_route():
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
             temp_zip_path = temp_zip.name
+            current_app.logger.info(f"Saving uploaded file to temporary location: {temp_zip_path}")
             tdata_zip.save(temp_zip_path)
 
-        # Use the optimized process_tdata_zip function
+        # Use the process_tdata_zip function
+        current_app.logger.info(f"Starting TData processing for file: {temp_zip_path}")
         result = process_tdata_zip(temp_zip_path, proxy_config=proxy_config)
         
         if "error" in result:
+            current_app.logger.error(f"TData processing error: {result['error']}")
             return jsonify({"error": result["error"]}), 400
 
         account = result["account"]
         session_path = account.pop("session_path", None)
         telegram_id = account.pop("telegram_id", None)
+        
+        current_app.logger.info(f"Account info extracted - ID: {account['id']}, Phone: {account.get('phone')}")
+        current_app.logger.info(f"Session path: {session_path}, Telegram ID: {telegram_id}")
 
+        # Add account metadata
         account.update({
             "list_ids": [target_list_id],
             "list_id": target_list_id,
             "proxy_id": proxy_id
         })
 
+        # Get existing accounts
         accounts = get_accounts()
+        current_app.logger.info(f"Current account count: {len(accounts)}")
+        
         if not isinstance(accounts, list):
-            current_app.logger.error("Critical: get_accounts() returned non-list type")
+            current_app.logger.error(f"Critical: get_accounts() returned non-list type: {type(accounts)}")
             accounts = []
 
-        existing_account = next(
-            (acc for acc in accounts 
-            if acc.get('user_id') == account.get('user_id')),  # Changed from 'phone' to 'telegram_id'
-            None
-            )
-
-        accounts_meta = get_accounts_meta()
+        # *** FIX: Always create a new account with a unique ID ***
+        # Generate a new unique ID for each import
+        account["id"] = str(uuid.uuid4())
+        current_app.logger.info(f"Created new account with ID: {account['id']}")
         
+        # Add the new account to the list
         accounts.append(account)
+
+        # Save accounts
+        current_app.logger.info(f"Saving accounts. Count after adding: {len(accounts)}")
+        save_accounts(accounts)
+
+        # Save metadata
+        accounts_meta = get_accounts_meta()
         accounts_meta[account["id"]] = {
             "session_path": session_path,
             "telegram_id": telegram_id
         }
-
-        save_accounts(accounts)
+        
+        current_app.logger.info(f"Saving account metadata for ID: {account['id']}")
         save_accounts_meta(accounts_meta)
+        
+        # Update proxy association
+        current_app.logger.info(f"Updating proxy association: Account {account['id']} -> Proxy {proxy_id}")
         update_account_proxy(account['id'], proxy_id)
 
         return jsonify({
             "success": True,
             "account": account,
-            "updated": bool(existing_account)
+            "updated": False  # Always false since we're creating a new account
         })
 
     except Exception as e:
@@ -287,6 +317,7 @@ def import_tdata_zip_route():
         if temp_zip_path and os.path.exists(temp_zip_path):
             try:
                 os.unlink(temp_zip_path)
+                current_app.logger.info(f"Removed temporary file: {temp_zip_path}")
             except Exception as e:
                 current_app.logger.warning(f"Failed to clean up temp file: {str(e)}")
 

@@ -1024,7 +1024,7 @@ def convert_session_file(session_file_path: str, target_dir: str = SESSIONS_DIR)
 
 def process_tdata_zip(zip_path: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
-    Process a TData ZIP file and extract account information
+    Process a TData ZIP file and extract account information with enhanced logging
     
     Args:
         zip_path: Path to the TData ZIP file
@@ -1042,18 +1042,23 @@ def process_tdata_zip(zip_path: str, proxy_config: Optional[Dict[str, Any]] = No
         # Extract the ZIP file
         extract_result = extract_zip_tdata(zip_path)
         if "error" in extract_result:
+            logger.error(f"ZIP extraction failed: {extract_result['error']}")
             return extract_result
         
         tdata_dir = extract_result["path"]
         temp_dir = extract_result["temp_dir"]
         
+        logger.info(f"ZIP extraction successful. TData directory: {tdata_dir}")
+        
         # Run the account extraction in an event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        logger.info("Starting account info extraction...")
         result = loop.run_until_complete(extract_account_info_from_tdata(tdata_dir, proxy_config))
         loop.close()
         
         # Clean up temporary directory
+        logger.info(f"Cleaning up temporary directory: {temp_dir}")
         shutil.rmtree(temp_dir, ignore_errors=True)
         
         if "error" in result:
@@ -1061,14 +1066,21 @@ def process_tdata_zip(zip_path: str, proxy_config: Optional[Dict[str, Any]] = No
             return result
         
         logger.info(f"Account extraction successful: {result.get('account', {}).get('name')}")
+        logger.info(f"Account telegram_id: {result.get('account', {}).get('telegram_id')}")
+        logger.info(f"Account phone: {result.get('account', {}).get('phone')}")
+        
         if "account" in result:
-            result["account"]["id"] = str(uuid.uuid4())
+            # Generate a new unique ID for the account
+            new_account_id = str(uuid.uuid4())
+            logger.info(f"Assigning new account ID: {new_account_id}")
+            result["account"]["id"] = new_account_id
             
         return result
     
     except Exception as e:
         logger.exception(f"Error processing TData ZIP: {e}")
         return {"error": f"Processing error: {str(e)}"}
+
 
 def request_phone_verification(phone: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
