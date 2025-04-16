@@ -1,6 +1,6 @@
 """
 Enhanced broadcaster routes for the Telegram broadcaster application.
-This module provides API endpoints for the enhanced broadcaster functionality.
+This module provides API endpoints for task management and broadcasting functionality.
 """
 
 from flask import request, jsonify, current_app
