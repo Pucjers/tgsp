@@ -1061,6 +1061,9 @@ def process_tdata_zip(zip_path: str, proxy_config: Optional[Dict[str, Any]] = No
             return result
         
         logger.info(f"Account extraction successful: {result.get('account', {}).get('name')}")
+        if "account" in result:
+            result["account"]["id"] = str(uuid.uuid4())
+            
         return result
     
     except Exception as e:

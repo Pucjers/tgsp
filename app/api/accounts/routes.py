@@ -263,20 +263,11 @@ def import_tdata_zip_route():
 
         accounts_meta = get_accounts_meta()
         
-        if existing_account:
-            account['id'] = existing_account['id']
-            account_index = next(i for i, acc in enumerate(accounts) if acc['id'] == account['id'])
-            accounts[account_index] = account
-            accounts_meta[account['id']] = {
-                "session_path": session_path,
-                "telegram_id": telegram_id
-            }
-        else:
-            accounts.append(account)
-            accounts_meta[account["id"]] = {
-                "session_path": session_path,
-                "telegram_id": telegram_id
-            }
+        accounts.append(account)
+        accounts_meta[account["id"]] = {
+            "session_path": session_path,
+            "telegram_id": telegram_id
+        }
 
         save_accounts(accounts)
         save_accounts_meta(accounts_meta)

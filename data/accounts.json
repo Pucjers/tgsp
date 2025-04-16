@@ -1,8 +1,8 @@
 [
   {
-    "id": "82ed2f14-6ada-4a02-8125-1a2e40e47d1c",
-    "phone": "+2349067732475",
-    "name": "Ror",
+    "id": "5665f2f7-4874-4e35-9cff-46ad14934d8c",
+    "phone": "+2349067682431",
+    "name": "Ueu",
     "username": "",
     "avatar": null,
     "status": "\u041d\u0435 \u043f\u0440\u043e\u0432\u0435\u0440\u0435\u043d",
@@ -10,7 +10,7 @@
       "daily_invites": 30,
       "daily_messages": 50
     },
-    "created_at": "2025-04-16T12:02:41.852581",
+    "created_at": "2025-04-16T12:15:56.663748",
     "cooldown_until": null,
     "list_id": "main",
     "premium": false,
