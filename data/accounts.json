@@ -18,5 +18,25 @@
       "main"
     ],
     "proxy_id": "de717eb7-c728-4e0c-b67d-5257d0662a83"
+  },
+  {
+    "id": "4aa34c86-8caf-4952-8f69-c7540384f3d5",
+    "phone": "+2349067682431",
+    "name": "Ueu",
+    "username": "",
+    "avatar": null,
+    "status": "\u041e\u043a",
+    "limits": {
+      "daily_invites": 30,
+      "daily_messages": 50
+    },
+    "created_at": "2025-04-16T20:28:37.180038",
+    "cooldown_until": null,
+    "list_id": "main",
+    "premium": false,
+    "list_ids": [
+      "main"
+    ],
+    "proxy_id": "de717eb7-c728-4e0c-b67d-5257d0662a83"
   }
 ]

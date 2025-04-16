@@ -569,6 +569,11 @@
                             <button id="test-message-btn" class="btn btn-text">
                                 <i class="fas fa-vial"></i> Test Message
                             </button>
+                            
+                            <!-- Add this new button -->
+                            <button id="add-enhanced-broadcast-btn" class="btn btn-secondary">
+                                <i class="fas fa-bolt"></i> Enhanced Broadcaster
+                            </button>
                         </div>
                         
                         <!-- Progress Indicator -->
@@ -613,6 +618,245 @@
     <!-- Modal Container -->
     <div class="modal-container" id="modal-container">
         <!-- Save Template Modal -->
+        <div class="modal" id="enhanced-broadcaster-modal">
+            <div class="modal-header">
+                <h3>Enhanced Broadcaster</h3>
+                <button class="btn-close" data-close-modal="enhanced-broadcaster-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+        
+                <!-- Task Name -->
+                <div class="form-group mb-4">
+                    <label for="taskName">Название задачи</label>
+                    <div class="relative">
+                        <input 
+                            id="taskName"
+                            type="text" 
+                            class="form-control"
+                            value="My task"
+                        >
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <i class="fas fa-info-circle text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- File Upload -->
+                <div class="form-group mb-4">
+                    <label>Укажите txt-файл со ссылками на чаты и/или парсы с чатами. По одной ссылке в строке.</label>
+                    <div class="flex items-center mt-2">
+                        <label class="btn btn-secondary">
+                            <i class="fas fa-upload mr-2"></i>
+                            <span class="text-base leading-normal">Choose file</span>
+                            <input type='file' id="chat-links-file" class="hidden">
+                        </label>
+                        <span class="ml-3 text-gray-500" id="selected-file-name">
+                            No file chosen
+                        </span>
+                    </div>
+                </div>
+        
+                <!-- Message Type -->
+                <div class="form-group mb-4">
+                    <div class="flex flex-col space-y-2">
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="radio" 
+                                name="sendMode" 
+                                value="single"
+                                checked
+                            >
+                            <span class="ml-2">Отправлять одно сообщение</span>
+                        </label>
+                        
+                        <div class="ml-7" id="single-message-container">
+                            <textarea
+                                id="enhanced-message-text"
+                                class="form-control"
+                                rows="4"
+                                placeholder="Enter your message"
+                            >[Здравствуйте]/[Добрый день]/[Доброго времени суток]. Увидел вас в чате...</textarea>
+                            <div class="flex justify-end mt-2">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-text btn-sm"
+                                    id="add-document-btn"
+                                >
+                                    Добавить к сообщению документ или картинку (до 1МБ)
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="radio" 
+                                name="sendMode" 
+                                value="file"
+                            >
+                            <span class="ml-2">Отправлять сообщения из txt-файла (разделитель сообщений - "Test")</span>
+                        </label>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="radio" 
+                                name="sendMode" 
+                                value="repost"
+                            >
+                            <span class="ml-2">Отправлять репосты из ПУБЛИЧНОГО чата или канала с РАЗРЕШЁННЫМИ репостами (по одной ссылке в строке)</span>
+                        </label>
+                    </div>
+                </div>
+        
+                <!-- Work Mode -->
+                <div class="form-group mb-4">
+                    <label>Режим работы:</label>
+                    <div class="flex flex-col space-y-2 mt-2">
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="radio" 
+                                name="workMode" 
+                                value="group"
+                                checked
+                            >
+                            <span class="ml-2">Постинг в группу чатов</span>
+                        </label>
+                        
+                        <div class="ml-7" id="group-chat-container">
+                            <div class="flex items-center">
+                                <span class="mr-2">Количество чатов, в которые рассылает один аккаунт:</span>
+                                <input 
+                                    type="number" 
+                                    id="chatCount"
+                                    min="1" 
+                                    max="30"
+                                    class="form-control w-16"
+                                    value="6"
+                                >
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Не рекомендуем для данной настройки выставлять значение больше "30"
+                            </div>
+                        </div>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="radio" 
+                                name="workMode" 
+                                value="single"
+                            >
+                            <span class="ml-2">Постинг в один чат</span>
+                        </label>
+                    </div>
+                </div>
+        
+                <!-- Additional Options -->
+                <div class="form-group mb-4">
+                    <div class="flex flex-col space-y-2">
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="joinChats"
+                            >
+                            <span class="ml-2">Начинать постинг не дожидаясь вступления во все чаты</span>
+                        </label>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="repeatBroadcast"
+                            >
+                            <span class="ml-2">Повторить рассылку после отправки одного сообщения во все чаты</span>
+                        </label>
+                        
+                        <div class="flex items-center ml-7 mt-2" id="repeat-interval-container" style="display: none;">
+                            <span class="mr-2">Пауза перед следующей отправкой от:</span>
+                            <input 
+                                type="number" 
+                                id="waitMin"
+                                min="1" 
+                                class="form-control w-16"
+                                value="1"
+                            >
+                            <span class="mx-2">до:</span>
+                            <input 
+                                type="number" 
+                                id="waitMax"
+                                min="1" 
+                                class="form-control w-16"
+                                value="1"
+                            >
+                            <span class="ml-2">мин.</span>
+                        </div>
+                    </div>
+                </div>
+        
+                <!-- Account Selection -->
+                <div class="form-group mb-6 border-t pt-4">
+                    <label class="block mb-2">
+                        Аккаунты, от имени которых будут отправлены сообщения:
+                    </label>
+                    <div id="account-selector" class="bg-blue-500 text-white text-center py-3 rounded cursor-pointer hover:bg-blue-600 mb-4">
+                        Выбрать аккаунты
+                    </div>
+                    
+                    <div id="selected-accounts-container" class="grid grid-cols-2 gap-4">
+                        <!-- Selected accounts will be displayed here -->
+                    </div>
+                </div>
+        
+                <!-- Additional Settings -->
+                <div class="form-group mb-6">
+                    <div class="flex flex-col space-y-2">
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="hideSource"
+                            >
+                            <span class="ml-2">Скрывать источник пересылки</span>
+                        </label>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="processAfterPost"
+                            >
+                            <span class="ml-2">После размещения поста проверять не удален ли он (снижает скорость работы задачи)</span>
+                        </label>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="deleteAfter"
+                            >
+                            <span class="ml-2">Удалять отправленные посты через:</span>
+                        </label>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="leaveChats"
+                            >
+                            <span class="ml-2">Аккаунтам выйти из всех чатов</span>
+                        </label>
+                        
+                        <label class="inline-flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="useFloodCheck"
+                            >
+                            <span class="ml-2">В случае PEER_FLOOD_ERROR вместо отметки проверять через @spambot (только для премиума)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-text" data-close-modal="enhanced-broadcaster-modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="create-task-btn">Создать задачу</button>
+                <button type="button" class="btn btn-success" id="create-and-run-task-btn">Создать задачу и запустить</button>
+            </div>
+        </div>
         <div class="modal" id="save-template-modal">
             <div class="modal-header">
                 <h3>Save Template</h3>
@@ -789,7 +1033,13 @@
             </div>
         </div>
     </div>
-    
+    <div class="warning-overlay" id="proxy-warning-overlay">
+        <div class="proxy-warning-popup-content">
+            <h3>Important Notice</h3>
+            <p>For broadcasting messages, each account must have a proxy assigned. Please ensure all selected accounts have proxies configured.</p>
+            <button class="warning-confirm-btn" id="proxy-warning-confirm-btn">I Understand</button>
+        </div>
+    </div>
     <!-- SVG Assets -->
     <svg style="display: none;">
         <symbol id="logo" viewBox="0 0 24 24">

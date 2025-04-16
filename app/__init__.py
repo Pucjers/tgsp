@@ -62,6 +62,7 @@ def create_app(config=None):
         print(f"{rule.endpoint}: {rule}")
 
     bootstrap_telegram_import_api()
+    init_broadcaster_tasks()
 
     return app
 
@@ -110,5 +111,28 @@ def bootstrap_telegram_import_api():
     print("- POST /api/accounts/import-session - Import account from session file")
     print("- POST /api/accounts/request-code - Request phone verification code")
     print("- POST /api/accounts/verify-code - Verify phone number with code")
+    
+    return True
+
+
+def init_broadcaster_tasks():
+    """
+    Initialize the broadcaster task system.
+    This should be called in app/__init__.py during application startup.
+    """
+    import os
+    import logging
+    
+    # Create necessary directory for tasks
+    data_dir = os.path.join(os.getcwd(), "data")
+    os.makedirs(data_dir, exist_ok=True)
+    
+    # Set up logging
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO
+    )
+    
+    print("Broadcaster task system initialized")
     
     return True

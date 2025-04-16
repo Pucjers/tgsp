@@ -1,314 +1,346 @@
+"""
+Enhanced broadcaster routes for the Telegram broadcaster application.
+This module provides API endpoints for the enhanced broadcaster functionality.
+"""
+
 from flask import request, jsonify, current_app
 import os
 import datetime
 import json
+import uuid
 import tempfile
 from werkzeug.utils import secure_filename
 
 from app.api.broadcaster import broadcaster_bp
-from app.api.broadcaster.services import (
-    save_message_template,
-    get_message_templates,
-    get_message_template,
-    delete_message_template
-)
-from app.utils.file_utils import allowed_file
+from app.utils.file_utils import allowed_file, get_accounts
 
 
-@broadcaster_bp.route('/templates', methods=['GET'])
-def get_templates():
-    """Get all message templates"""
-    return jsonify(get_message_templates())
-
-
-@broadcaster_bp.route('/templates/<template_id>', methods=['GET'])
-def get_template(template_id):
-    """Get a specific message template"""
-    template = get_message_template(template_id)
-    if not template:
-        return jsonify({"error": "Template not found"}), 404
-    
-    return jsonify(template)
-
-
-@broadcaster_bp.route('/templates', methods=['POST'])
-def create_template():
-    """Create a new message template"""
-    data = request.json
-    
-    if not data or 'name' not in data or 'message' not in data:
-        return jsonify({"error": "Missing required fields: name and message"}), 400
-    
-    template = save_message_template(data)
-    return jsonify(template), 201
-
-
-@broadcaster_bp.route('/templates/<template_id>', methods=['DELETE'])
-def delete_template(template_id):
-    """Delete a message template"""
-    if delete_message_template(template_id):
-        return jsonify({"message": "Template deleted successfully"})
-    
-    return jsonify({"error": "Template not found"}), 404
-
-
-@broadcaster_bp.route('/upload-image', methods=['POST'])
-def upload_image():
-    """Upload an image for broadcasting"""
-    current_app.logger.info("Broadcast upload-image endpoint called")
-    
-    # Check if the post request has the file part
-    if 'image' not in request.files:
-        current_app.logger.error("No 'image' field in the request files")
-        current_app.logger.debug(f"Request files: {request.files.keys()}")
-        return jsonify({"error": "No file part named 'image'. Available files: " + ", ".join(request.files.keys())}), 400
-    
-    file = request.files['image']
-    current_app.logger.info(f"Received file: {file.filename}, type: {file.content_type}, size: {len(file.read())} bytes")
-    file.seek(0)  # Reset file position after reading
-    
-    # If user does not select file, browser also submit an empty part without filename
-    if file.filename == '':
-        current_app.logger.error("Empty filename in uploaded file")
-        return jsonify({"error": "No selected file"}), 400
-    
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        # Add timestamp to filename to prevent caching issues
-        timestamp = int(datetime.datetime.now().timestamp())
-        filename = f"{timestamp}_{filename}"
-        
-        # Ensure uploads directory exists
-        upload_folder = current_app.config['UPLOAD_FOLDER']
-        os.makedirs(upload_folder, exist_ok=True)
-        current_app.logger.info(f"Upload folder: {upload_folder}")
-        
-        file_path = os.path.join(upload_folder, filename)
-        
-        try:
-            file.save(file_path)
-            current_app.logger.info(f"File saved to: {file_path}")
-            
-            # Check if file was actually saved
-            if os.path.exists(file_path):
-                current_app.logger.info(f"File exists at {file_path}, size: {os.path.getsize(file_path)} bytes")
-            else:
-                current_app.logger.error(f"File does not exist at {file_path} after saving")
-                return jsonify({"error": "Failed to save file: file not found after save"}), 500
-            
-            # Return path to uploaded file
-            return jsonify({"url": f"/uploads/{filename}"})
-        except Exception as e:
-            current_app.logger.error(f"Error saving file: {str(e)}", exc_info=True)
-            return jsonify({"error": f"Failed to save file: {str(e)}"}), 500
-    
-    current_app.logger.error(f"File type not allowed: {file.filename}")
-    return jsonify({"error": f"File type not allowed. Allowed types: {', '.join(current_app.config['ALLOWED_EXTENSIONS'])}"}), 400
-
-
-@broadcaster_bp.route('/send-message', methods=['POST'])
-def send_message():
-    """Send a message to a Telegram group"""
-    current_app.logger.info("Broadcast send-message endpoint called")
-    
+@broadcaster_bp.route('/create-task', methods=['POST'])
+def create_broadcasting_task():
+    """Create a new broadcasting task"""
     try:
+        # Get request data
         data = request.json
-        current_app.logger.info(f"Received data: account_id={data.get('account_id')}, group_id={data.get('group_id')}")
-        current_app.logger.info(f"Message length: {len(data.get('message', ''))}")
-        current_app.logger.info(f"Number of images: {len(data.get('image_urls', []))}")
         
-        # Check for required fields
         if not data:
-            current_app.logger.error("No JSON data in request")
             return jsonify({"success": False, "error": "No data provided"}), 400
-            
-        if 'account_id' not in data:
-            current_app.logger.error("Missing account_id in request")
-            return jsonify({"success": False, "error": "account_id is required"}), 400
-            
-        if 'group_id' not in data:
-            current_app.logger.error("Missing group_id in request")
-            return jsonify({"success": False, "error": "group_id is required"}), 400
-            
-        if 'message' not in data:
-            current_app.logger.error("Missing message in request")
-            return jsonify({"success": False, "error": "message is required"}), 400
         
-        # Get account and group info
-        from app.api.accounts.services import get_account_by_id
-        from app.api.groups.services import get_group_by_id
-        from app.utils.file_utils import get_accounts_meta
+        # Validate required fields
+        required_fields = ['name', 'mode', 'workMode', 'selectedAccounts']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"success": False, "error": f"Missing required field: {field}"}), 400
         
-        account_id = data['account_id']
-        group_id = data['group_id']
-        message = data['message']
-        image_urls = data.get('image_urls', [])
+        # Validate accounts
+        account_ids = data.get('selectedAccounts', [])
+        if not account_ids:
+            return jsonify({"success": False, "error": "No accounts selected"}), 400
         
-        account = get_account_by_id(account_id)
-        group = get_group_by_id(group_id)
+        # Get accounts
+        all_accounts = get_accounts()
+        selected_accounts = [acc for acc in all_accounts if acc.get('id') in account_ids]
         
-        if not account:
-            current_app.logger.error(f"Account not found: {account_id}")
-            return jsonify({"success": False, "error": "Account not found"}), 404
-            
-        if not group:
-            current_app.logger.error(f"Group not found: {group_id}")
-            return jsonify({"success": False, "error": "Group not found"}), 404
+        if not selected_accounts:
+            return jsonify({"success": False, "error": "None of the selected accounts were found"}), 404
         
-        # Get account metadata to find the session file
-        accounts_meta = get_accounts_meta()
-        account_meta = accounts_meta.get(account_id, {})
+        # Create task ID
+        task_id = str(uuid.uuid4())
         
-        session_path = account_meta.get('session_path')
-        telegram_id = account_meta.get('telegram_id')
+        # Create task object
+        task = {
+            "id": task_id,
+            "name": data.get('name'),
+            "mode": data.get('mode'),
+            "workMode": data.get('workMode'),
+            "message": data.get('message', ''),
+            "chatCount": data.get('chatCount', 6),
+            "waitPeriod": data.get('waitPeriod', {"min": 1, "max": 1}),
+            "hideSource": data.get('hideSource', False),
+            "repeatBroadcast": data.get('repeatBroadcast', False),
+            "joinChats": data.get('joinChats', False),
+            "processAfterPost": data.get('processAfterPost', False),
+            "deleteAfter": data.get('deleteAfter', False),
+            "leaveChats": data.get('leaveChats', False),
+            "useFloodCheck": data.get('useFloodCheck', False),
+            "accountIds": account_ids,
+            "status": "created",
+            "createdAt": datetime.datetime.now().isoformat(),
+            "startedAt": None,
+            "completedAt": None,
+            "progress": {
+                "total": 0,
+                "completed": 0,
+                "errors": 0
+            }
+        }
         
-        current_app.logger.info(f"Found metadata: session_path={session_path}, telegram_id={telegram_id}")
+        # Save task to JSON file
+        tasks_file = os.path.join(current_app.config.get('DATA_DIR', 'data'), 'broadcast_tasks.json')
         
-        # Try to find the session file in multiple places
-        if session_path and os.path.exists(session_path):
-            # If the stored path exists, use it
-            current_app.logger.info(f"Using stored session path: {session_path}")
-        elif telegram_id:
-            # If we have the telegram ID, try to find the session file
-            # Check in the application's sessions directory
-            sessions_dir = current_app.config.get('SESSIONS_DIR', 'saved_sessions')
-            possible_paths = [
-                os.path.join(sessions_dir, f"{telegram_id}.session"),
-                os.path.join(os.getcwd(), sessions_dir, f"{telegram_id}.session"),
-                os.path.join(os.getcwd(), "saved_sessions", f"{telegram_id}.session"),
-                os.path.join("saved_sessions", f"{telegram_id}.session")
-            ]
-            
-            # Try each path
-            found_path = None
-            for path in possible_paths:
-                current_app.logger.info(f"Checking for session at: {path}")
-                if os.path.exists(path):
-                    found_path = path
-                    break
-            
-            if found_path:
-                current_app.logger.info(f"Found session at alternative path: {found_path}")
-                session_path = found_path
-                
-                # Update the metadata for future use
-                account_meta['session_path'] = session_path
-                accounts_meta[account_id] = account_meta
-                from app.utils.file_utils import save_accounts_meta
-                save_accounts_meta(accounts_meta)
-            else:
-                # Also try using the phone number as a fallback
-                phone = account.get('phone', '').replace('+', '')
-                if phone:
-                    possible_phone_paths = [
-                        os.path.join(sessions_dir, f"{phone}.session"),
-                        os.path.join(os.getcwd(), sessions_dir, f"{phone}.session"),
-                        os.path.join(os.getcwd(), "saved_sessions", f"{phone}.session"),
-                        os.path.join("saved_sessions", f"{phone}.session")
-                    ]
-                    
-                    for path in possible_phone_paths:
-                        current_app.logger.info(f"Checking for session with phone at: {path}")
-                        if os.path.exists(path):
-                            found_path = path
-                            break
-                    
-                    if found_path:
-                        current_app.logger.info(f"Found session using phone at: {found_path}")
-                        session_path = found_path
-                        
-                        # Update the metadata for future use
-                        account_meta['session_path'] = session_path
-                        accounts_meta[account_id] = account_meta
-                        from app.utils.file_utils import save_accounts_meta
-                        save_accounts_meta(accounts_meta)
-        
-        if not session_path or not os.path.exists(session_path):
-            current_app.logger.error(f"No valid session path found for account {account_id}")
-            return jsonify({
-                "success": False, 
-                "error": "No session found for this account. Please check that the account has been properly imported."
-            }), 400
-        
-        current_app.logger.info(f"Using session path: {session_path}")
-        current_app.logger.info(f"Group target: {group.get('username', group.get('telegram_id', 'unknown'))}")
-        
-        # Determine the group identifier to use (username preferred, or telegram_id)
-        group_identifier = group.get('username', group.get('telegram_id'))
-        
-        if not group_identifier:
-            current_app.logger.error(f"No valid identifier found for group {group_id}")
-            return jsonify({"success": False, "error": "No valid group identifier found"}), 400
-        
-        # Process image URLs - Make sure they're valid server paths, not blob URLs
-        processed_image_urls = []
-        
-        for url in image_urls:
-            # Check if the URL is valid
-            if url and isinstance(url, str):
-                if url.startswith('/uploads/'):
-                    # Check if the file exists
-                    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-                    file_name = os.path.basename(url)
-                    absolute_path = os.path.abspath(os.path.join(upload_folder, file_name))
-                    
-                    if os.path.exists(absolute_path):
-                        current_app.logger.info(f"Image file found: {absolute_path}")
-                        processed_image_urls.append(absolute_path)  # Use absolute path for Telegram API
-                    else:
-                        current_app.logger.warning(f"Image file not found: {absolute_path} - URL: {url}")
-                elif url.startswith(('http://', 'https://')):
-                    # For external URLs, we need to download them first
-                    try:
-                        import requests
-                        
-                        # Create a temporary file
-                        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
-                            temp_path = temp_file.name
-                            
-                        # Download the image
-                        response = requests.get(url, stream=True, timeout=10)
-                        if response.status_code == 200:
-                            with open(temp_path, 'wb') as f:
-                                for chunk in response.iter_content(1024):
-                                    f.write(chunk)
-                            
-                            current_app.logger.info(f"Downloaded external image to: {temp_path}")
-                            processed_image_urls.append(temp_path)
-                        else:
-                            current_app.logger.warning(f"Failed to download external image: {url}")
-                    except Exception as e:
-                        current_app.logger.error(f"Error downloading external image: {str(e)}")
-                else:
-                    current_app.logger.warning(f"Unsupported image URL format: {url}")
-        
-        current_app.logger.info(f"Processed {len(processed_image_urls)} valid image URLs out of {len(image_urls)}")
-        
-        # Use our telegram sender to send the message
-        from app.services.telegram_sender import send_message as telegram_send
-        
-        result = telegram_send(
-            session_path=session_path,
-            group_id=group_identifier,
-            message_text=message,
-            image_paths=processed_image_urls
-        )
-        
-        current_app.logger.info(f"Send result: {result}")
-        
-        # Clean up any temporary files
-        for path in processed_image_urls:
-            if path.startswith(tempfile.gettempdir()):
+        # Create tasks list or load existing tasks
+        if os.path.exists(tasks_file):
+            with open(tasks_file, 'r') as f:
                 try:
-                    os.unlink(path)
-                except Exception as e:
-                    current_app.logger.warning(f"Failed to clean up temp file: {str(e)}")
+                    tasks = json.load(f)
+                except json.JSONDecodeError:
+                    tasks = {}
+        else:
+            tasks = {}
         
-        return jsonify(result)
+        # Add task to tasks list
+        tasks[task_id] = task
         
+        # Save tasks
+        with open(tasks_file, 'w') as f:
+            json.dump(tasks, f, indent=2)
+        
+        # Check if auto-run is requested
+        auto_run = data.get('auto_run', False)
+        if auto_run:
+            # Start task logic would go here
+            task['status'] = 'running'
+            task['startedAt'] = datetime.datetime.now().isoformat()
+            
+            # Save updated task status
+            with open(tasks_file, 'w') as f:
+                json.dump(tasks, f, indent=2)
+            
+            # In a real implementation, you would start a background task here
+            
+        return jsonify({
+            "success": True,
+            "task_id": task_id,
+            "auto_run": auto_run
+        })
+    
     except Exception as e:
-        current_app.logger.error(f"Error in send_message endpoint: {str(e)}", exc_info=True)
+        current_app.logger.error(f"Error creating broadcasting task: {str(e)}", exc_info=True)
         return jsonify({
             "success": False,
-            "error": f"Server error: {str(e)}"
+            "error": f"Error creating task: {str(e)}"
+        }), 500
+
+
+@broadcaster_bp.route('/tasks', methods=['GET'])
+def get_broadcasting_tasks():
+    """Get all broadcasting tasks or a specific task by ID"""
+    try:
+        task_id = request.args.get('task_id')
+        tasks_file = os.path.join(current_app.config.get('DATA_DIR', 'data'), 'broadcast_tasks.json')
+        
+        # Check if tasks file exists
+        if not os.path.exists(tasks_file):
+            if task_id:
+                return jsonify({"success": False, "error": "Task not found"}), 404
+            return jsonify({"success": True, "tasks": {}})
+        
+        # Load tasks
+        with open(tasks_file, 'r') as f:
+            try:
+                tasks = json.load(f)
+            except json.JSONDecodeError:
+                tasks = {}
+        
+        # Return specific task or all tasks
+        if task_id:
+            if task_id in tasks:
+                return jsonify({
+                    "success": True,
+                    "task": tasks[task_id]
+                })
+            return jsonify({"success": False, "error": "Task not found"}), 404
+        
+        return jsonify({
+            "success": True,
+            "tasks": tasks
+        })
+    
+    except Exception as e:
+        current_app.logger.error(f"Error getting broadcasting tasks: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": f"Error getting tasks: {str(e)}"
+        }), 500
+
+
+@broadcaster_bp.route('/tasks/<task_id>', methods=['DELETE'])
+def delete_broadcasting_task(task_id):
+    """Delete a broadcasting task"""
+    try:
+        tasks_file = os.path.join(current_app.config.get('DATA_DIR', 'data'), 'broadcast_tasks.json')
+        
+        # Check if tasks file exists
+        if not os.path.exists(tasks_file):
+            return jsonify({"success": False, "error": "Task not found"}), 404
+        
+        # Load tasks
+        with open(tasks_file, 'r') as f:
+            try:
+                tasks = json.load(f)
+            except json.JSONDecodeError:
+                tasks = {}
+        
+        # Check if task exists
+        if task_id not in tasks:
+            return jsonify({"success": False, "error": "Task not found"}), 404
+        
+        # Check if task is running
+        if tasks[task_id].get('status') == 'running':
+            return jsonify({"success": False, "error": "Cannot delete a running task"}), 400
+        
+        # Delete task
+        del tasks[task_id]
+        
+        # Save tasks
+        with open(tasks_file, 'w') as f:
+            json.dump(tasks, f, indent=2)
+        
+        return jsonify({
+            "success": True,
+            "message": "Task deleted successfully"
+        })
+    
+    except Exception as e:
+        current_app.logger.error(f"Error deleting broadcasting task: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": f"Error deleting task: {str(e)}"
+        }), 500
+
+
+@broadcaster_bp.route('/tasks/<task_id>/start', methods=['POST'])
+def start_broadcasting_task(task_id):
+    """Start a broadcasting task"""
+    try:
+        tasks_file = os.path.join(current_app.config.get('DATA_DIR', 'data'), 'broadcast_tasks.json')
+        
+        # Check if tasks file exists
+        if not os.path.exists(tasks_file):
+            return jsonify({"success": False, "error": "Task not found"}), 404
+        
+        # Load tasks
+        with open(tasks_file, 'r') as f:
+            try:
+                tasks = json.load(f)
+            except json.JSONDecodeError:
+                tasks = {}
+        
+        # Check if task exists
+        if task_id not in tasks:
+            return jsonify({"success": False, "error": "Task not found"}), 404
+        
+        # Check if task is already running
+        if tasks[task_id].get('status') == 'running':
+            return jsonify({"success": False, "error": "Task is already running"}), 400
+        
+        # Update task status
+        tasks[task_id]['status'] = 'running'
+        tasks[task_id]['startedAt'] = datetime.datetime.now().isoformat()
+        
+        # Save tasks
+        with open(tasks_file, 'w') as f:
+            json.dump(tasks, f, indent=2)
+        
+        # In a real implementation, you would start a background task here
+        
+        return jsonify({
+            "success": True,
+            "message": "Task started successfully"
+        })
+    
+    except Exception as e:
+        current_app.logger.error(f"Error starting broadcasting task: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": f"Error starting task: {str(e)}"
+        }), 500
+
+
+@broadcaster_bp.route('/tasks/<task_id>/stop', methods=['POST'])
+def stop_broadcasting_task(task_id):
+    """Stop a broadcasting task"""
+    try:
+        tasks_file = os.path.join(current_app.config.get('DATA_DIR', 'data'), 'broadcast_tasks.json')
+        
+        # Check if tasks file exists
+        if not os.path.exists(tasks_file):
+            return jsonify({"success": False, "error": "Task not found"}), 404
+        
+        # Load tasks
+        with open(tasks_file, 'r') as f:
+            try:
+                tasks = json.load(f)
+            except json.JSONDecodeError:
+                tasks = {}
+        
+        # Check if task exists
+        if task_id not in tasks:
+            return jsonify({"success": False, "error": "Task not found"}), 404
+        
+        # Check if task is running
+        if tasks[task_id].get('status') != 'running':
+            return jsonify({"success": False, "error": "Task is not running"}), 400
+        
+        # Update task status
+        tasks[task_id]['status'] = 'stopped'
+        
+        # Save tasks
+        with open(tasks_file, 'w') as f:
+            json.dump(tasks, f, indent=2)
+        
+        # In a real implementation, you would stop the background task here
+        
+        return jsonify({
+            "success": True,
+            "message": "Task stopped successfully"
+        })
+    
+    except Exception as e:
+        current_app.logger.error(f"Error stopping broadcasting task: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": f"Error stopping task: {str(e)}"
+        }), 500
+
+
+@broadcaster_bp.route('/upload-chat-list', methods=['POST'])
+def upload_chat_list():
+    """Upload a chat list file"""
+    try:
+        # Check if the post request has the file part
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file part"}), 400
+        
+        file = request.files['file']
+        
+        # If user does not select file, browser also submit an empty part without filename
+        if file.filename == '':
+            return jsonify({"success": False, "error": "No selected file"}), 400
+        
+        if file and file.filename.endswith('.txt'):
+            filename = secure_filename(file.filename)
+            # Add timestamp to filename to prevent caching issues
+            timestamp = int(datetime.datetime.now().timestamp())
+            filename = f"{timestamp}_{filename}"
+            
+            # Ensure uploads directory exists
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
+            
+            file_path = os.path.join(upload_folder, filename)
+            
+            file.save(file_path)
+            
+            return jsonify({
+                "success": True,
+                "url": f"/uploads/{filename}"
+            })
+        
+        return jsonify({"success": False, "error": "Invalid file type, only .txt files are allowed"}), 400
+    
+    except Exception as e:
+        current_app.logger.error(f"Error uploading chat list: {str(e)}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": f"Error uploading chat list: {str(e)}"
         }), 500
