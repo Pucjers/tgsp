@@ -337,47 +337,39 @@ def extract_zip_tdata(zip_path: str) -> Dict[str, Any]:
 
 async def extract_account_info_from_tdata(tdata_path: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
-    Extract account information from TData folder
+    Extract account information from TData folder using OpenTele
     
     Args:
-        tdata_path: Path to the TData folder
-        proxy_config: Optional proxy configuration
+        tdata_path: Path to the extracted TData folder
+        proxy_config: Optional proxy configuration for Telegram connection
         
     Returns:
-        Dict containing account information or error
+        Dictionary containing account information or error
     """
-    if not OPENTELE_AVAILABLE:
-        return {"error": "OpenTele library is not available"}
+    if not OPENTELE_AVAILABLE or not TELETHON_AVAILABLE:
+        return {"error": "OpenTele or Telethon library is not available"}
     
     try:
-        # Load TDesktop session
+        # Load TDesktop client
         tdesk = TDesktop(tdata_path)
         if not tdesk.isLoaded():
             return {"error": "Failed to load TData session"}
-    except Exception as e:
-        return {"error": f"Error loading TData: {str(e)}"}
-    
-    try:
-        # Get API credentials
-        api_id, api_hash = load_api_credentials()
-        
-        # Convert to Telethon and connect
-        # Note the API format change - using separate arguments instead of f-string
+            
+        # Convert to Telethon client directly using current session
         client = await tdesk.ToTelethon(
-            session=os.path.join(SESSIONS_DIR, "temp_session"),  # Temporary session path
+            session=os.path.join(SESSIONS_DIR, "temp_session"),
             flag=UseCurrentSession,
-            api_id=api_id,
-            api_hash=api_hash,
             proxy=proxy_config
         )
         
+        # Connect to verify authentication
         await client.connect()
         
         if not await client.is_user_authorized():
             await client.disconnect()
             return {"error": "Not authorized with Telegram"}
         
-        # Get user info
+        # Get user information
         me = await client.get_me()
         user_id = me.id
         username = me.username
@@ -385,72 +377,69 @@ async def extract_account_info_from_tdata(tdata_path: str, proxy_config: Optiona
         first_name = me.first_name
         last_name = me.last_name
         
-        # Save the session for later use
+        # Create permanent session path
         session_path = os.path.join(SESSIONS_DIR, f"{user_id}.session")
+        
+        # Disconnect the temporary client
         await client.disconnect()
         
-        # Reconnect and save session to the specified path
+        # Create a new client with the permanent session path
         client = await tdesk.ToTelethon(
             session=session_path,
             flag=UseCurrentSession,
-            api_id=api_id,
-            api_hash=api_hash,
             proxy=proxy_config
         )
+        
         await client.connect()
         
-        # Check if premium
+        # Check premium status
         premium = False
         try:
-            # This is a way to check premium, might need adjustment based on Telethon version
             full_user = await client(GetFullUserRequest(me.id))
             premium = getattr(full_user.full_user, "premium", False)
-        except:
-            # If we can't get premium status, default to False
-            premium = False
-            
-        # Get avatar
+        except Exception as e:
+            logger.warning(f"Error checking premium status: {e}")
+        
+        # Download avatar if available
         avatar_path = None
         try:
-            avatar_path = os.path.join(SESSIONS_DIR, f"avatar_{user_id}.jpg")
-            await client.download_profile_photo(me, file=avatar_path, download_big=False)
+            temp_avatar_path = os.path.join(SESSIONS_DIR, f"avatar_{user_id}.jpg")
+            await client.download_profile_photo(me, file=temp_avatar_path, download_big=False)
             
-            # If avatar was downloaded successfully, move it to uploads
-            if os.path.exists(avatar_path):
+            if os.path.exists(temp_avatar_path):
                 # Generate a unique filename
                 avatar_filename = f"{uuid.uuid4()}.jpg"
                 avatar_dest_path = os.path.join(UPLOAD_DIR, avatar_filename)
                 
                 # Copy avatar to uploads folder
-                shutil.copy(avatar_path, avatar_dest_path)
+                shutil.copy(temp_avatar_path, avatar_dest_path)
                 
                 # Remove temporary avatar
-                os.remove(avatar_path)
+                os.remove(temp_avatar_path)
                 
                 avatar_path = f"/uploads/{avatar_filename}"
-        except:
-            # If we can't get the avatar, we'll use a default one later
-            avatar_path = None
+        except Exception as e:
+            logger.warning(f"Error downloading avatar: {e}")
         
-        # Disconnect
+        # Disconnect client
         await client.disconnect()
         
         # Format name
-        full_name = first_name
+        full_name = first_name or ""
         if last_name:
             full_name += f" {last_name}"
-            
+        
         # Create account object
         account = {
             "id": str(uuid.uuid4()),
             "telegram_id": user_id,
             "phone": f"+{phone}" if phone else "Unknown",
             "name": full_name,
-            "username": username,
-            "avatar": avatar_path,  # Will be processed by the API later
+            "username": username or "",
+            "avatar": avatar_path,
             "status": "Не проверен",
             "limits": {
-                "daily_invites": 30,  # Default values
+                "daily_invites": 30,
                 "daily_messages": 50
             },
             "created_at": datetime.datetime.now().isoformat(),
@@ -463,13 +452,7 @@ async def extract_account_info_from_tdata(tdata_path: str, proxy_config: Optiona
         return {"success": True, "account": account}
     
     except Exception as e:
-        # Ensure client is disconnected in case of errors
-        try:
-            if 'client' in locals() and client.is_connected():
-                await client.disconnect()
-        except:
-            pass
-        
+        logger.exception(f"Error extracting account info from TData: {e}")
         return {"error": f"Error extracting account info: {str(e)}"}
 
 def import_tdata_zip(zip_path: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -1039,36 +1022,50 @@ def convert_session_file(session_file_path: str, target_dir: str = SESSIONS_DIR)
             "error": f"Failed to convert session file: {str(e)}"
         }
 
-def process_tdata_zip(zip_file_path: str, target_dir: str = SESSIONS_DIR, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def process_tdata_zip(zip_path: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Process a TData ZIP file and extract account information
-
+    
     Args:
-        zip_file_path: Path to the TData ZIP file
-        target_dir: Directory to save the extracted session
+        zip_path: Path to the TData ZIP file
         proxy_config: Optional proxy configuration
-
+        
     Returns:
         Dict containing the result of the extraction
     """
-    if not OPENTELE_AVAILABLE:
-        return {"error": "OpenTele library is not available"}
-
+    if not OPENTELE_AVAILABLE or not TELETHON_AVAILABLE:
+        return {"error": "OpenTele or Telethon library is not available"}
+    
+    logger.info(f"Starting TData processing from: {zip_path}")
+    
     try:
-        result = import_tdata_zip(zip_file_path, proxy_config)
-
-        # Ensure result is a dictionary, otherwise convert or raise error
-        if not isinstance(result, dict):
-            logger.error(f"process_tdata_zip: Unexpected type returned: {type(result)}")
-            return {"error": f"Internal error: Unexpected return type: {type(result)}"}
-
+        # Extract the ZIP file
+        extract_result = extract_zip_tdata(zip_path)
+        if "error" in extract_result:
+            return extract_result
+        
+        tdata_dir = extract_result["path"]
+        temp_dir = extract_result["temp_dir"]
+        
+        # Run the account extraction in an event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(extract_account_info_from_tdata(tdata_dir, proxy_config))
+        loop.close()
+        
+        # Clean up temporary directory
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        if "error" in result:
+            logger.error(f"Account extraction error: {result['error']}")
+            return result
+        
+        logger.info(f"Account extraction successful: {result.get('account', {}).get('name')}")
         return result
-
+    
     except Exception as e:
-        logger.exception("process_tdata_zip failed")
-        return {
-            "error": f"Failed to process TData ZIP: {str(e)}"
-        }
+        logger.exception(f"Error processing TData ZIP: {e}")
+        return {"error": f"Processing error: {str(e)}"}
 
 def request_phone_verification(phone: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """

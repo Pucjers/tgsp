@@ -1,3 +1,16 @@
 [
-
+  {
+    "id": "4d1e88b0-9c9c-4e50-9de2-5fd677b52b53",
+    "telegram_id": 0,
+    "title": "1",
+    "username": "ibutryi",
+    "members": 0,
+    "online": 0,
+    "language": "en",
+    "description": "",
+    "list_id": "main",
+    "list_ids": [
+      "main"
+    ]
+  }
 ]

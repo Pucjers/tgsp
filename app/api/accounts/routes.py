@@ -234,6 +234,7 @@ def import_tdata_zip_route():
             temp_zip_path = temp_zip.name
             tdata_zip.save(temp_zip_path)
 
+        # Use the optimized process_tdata_zip function
         result = process_tdata_zip(temp_zip_path, proxy_config=proxy_config)
         
         if "error" in result:
