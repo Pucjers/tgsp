@@ -366,116 +366,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   };
-
-  const showQuickAddProxyModal = () => {
-    const modal = document.getElementById("quick-add-proxy-modal");
-    if (!modal) return;
-
-    const form = document.getElementById("quick-add-proxy-form");
-    if (form) form.reset();
-
-    showModal("quick-add-proxy-modal");
-
-    const saveBtn = document.getElementById("save-quick-proxy-btn");
-    if (saveBtn) {
-      const newSaveBtn = saveBtn.cloneNode(true);
-      saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-
-      newSaveBtn.addEventListener("click", handleQuickSaveProxy);
-    }
-  };
-
-  const handleQuickSaveProxy = async () => {
-    const form = document.getElementById("quick-add-proxy-form");
-    if (!form) return;
-
-    const type = document.getElementById("quick-proxy-type").value;
-    const host = document.getElementById("quick-proxy-host").value.trim();
-    const port = document.getElementById("quick-proxy-port").value.trim();
-    const username = document
-      .getElementById("quick-proxy-username")
-      .value.trim();
-    const password = document
-      .getElementById("quick-proxy-password")
-      .value.trim();
-
-    if (!host) {
-      showToast("Please enter a proxy host", "error");
-      return;
-    }
-
-    if (!port) {
-      showToast("Please enter a proxy port", "error");
-      return;
-    }
-
-    const proxyData = {
-      type,
-      host,
-      port: parseInt(port),
-      username,
-      password,
-    };
-
-    const saveBtn = document.getElementById("save-quick-proxy-btn");
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    }
-
-    try {
-      const testResult = await api.testProxy(proxyData);
-
-      if (testResult.success) {
-        const newProxy = await api.createProxy(proxyData);
-
-        if (newProxy) {
-          state.proxies.push(newProxy);
-
-          const proxyWarning = document.getElementById("proxy-warning");
-          if (proxyWarning) {
-            proxyWarning.style.display = "none";
-          }
-
-          updateProxyDropdowns();
-
-          showToast("Proxy added and tested successfully", "success");
-
-          hideModal("quick-add-proxy-modal");
-        }
-      } else {
-        if (
-          confirm(
-            `Proxy test failed: ${testResult.error}\nDo you still want to save this proxy?`
-          )
-        ) {
-          const newProxy = await api.createProxy(proxyData);
-
-          if (newProxy) {
-            state.proxies.push(newProxy);
-
-            const proxyWarning = document.getElementById("proxy-warning");
-            if (proxyWarning) {
-              proxyWarning.style.display = "none";
-            }
-
-            updateProxyDropdowns();
-
-            showToast("Proxy added successfully", "success");
-
-            hideModal("quick-add-proxy-modal");
-          }
-        }
-      }
-    } catch (error) {
-      showToast("Error testing proxy", "error");
-    } finally {
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.innerHTML = "Save & Continue";
-      }
-    }
-  };
   const handleProxyChange = async (event) => {
     const select = event.target;
     const accountId = select.dataset.accountId;
@@ -1402,7 +1292,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const progressBar = document.getElementById("upload-progress-bar");
     const statusText = document.getElementById("upload-status-text");
   
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = false;
     if (statusText) statusText.textContent = "Uploading and processing TData...";
   
     // Simulate progress
@@ -1874,7 +1764,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (uploadStatus) uploadStatus.style.display = "none";
     if (progressBar) progressBar.style.width = "0%";
     if (statusText) statusText.textContent = "";
-    if (submitBtn) submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = false;
     if (uploadInput) uploadInput.value = "";
   
     // Set up drag and drop for TData ZIP file
@@ -1889,6 +1779,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
   
       uploadInput.addEventListener("change", (e) => {
+        console.log("File selected:", e.target.files);
         if (e.target.files && e.target.files.length > 0) {
           const file = e.target.files[0];
           if (file.name.endsWith(".zip")) {
@@ -1968,7 +1859,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const newImportBtn = submitBtn.cloneNode(true);
       submitBtn.parentNode.replaceChild(newImportBtn, submitBtn);
       
-      newImportBtn.disabled = true;
+      //newImportBtn.disabled = true;
       newImportBtn.addEventListener("click", () => {
         handleTDataImport(proxyId);
       });

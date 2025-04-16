@@ -6,9 +6,11 @@
     "port": 9594,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
-    "accounts": []
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:08.836568",
+    "accounts": [
+      "1dcd378c-f311-4862-8302-cc3b10b99eb3"
+    ]
   },
   {
     "id": "1a3f3a75-edae-4cec-a368-f6f41448ec05",
@@ -17,8 +19,8 @@
     "port": 6630,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:08.769646",
     "accounts": []
   },
   {
@@ -28,8 +30,8 @@
     "port": 6641,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "offline",
+    "last_checked": "2025-04-16T05:47:18.049929",
     "accounts": []
   },
   {
@@ -39,8 +41,8 @@
     "port": 6360,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:09.577964",
     "accounts": []
   },
   {
@@ -50,8 +52,8 @@
     "port": 6837,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:09.377267",
     "accounts": []
   },
   {
@@ -61,8 +63,8 @@
     "port": 6853,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:09.702965",
     "accounts": []
   },
   {
@@ -72,8 +74,8 @@
     "port": 6600,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:10.421773",
     "accounts": []
   },
   {
@@ -83,8 +85,8 @@
     "port": 7492,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:10.683211",
     "accounts": []
   },
   {
@@ -94,8 +96,8 @@
     "port": 7300,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:10.977147",
     "accounts": []
   },
   {
@@ -105,8 +107,8 @@
     "port": 8382,
     "username": "xewannnp",
     "password": "oyu7erasvqei",
-    "status": "untested",
-    "last_checked": null,
+    "status": "online",
+    "last_checked": "2025-04-16T05:47:11.150312",
     "accounts": []
   }
 ]

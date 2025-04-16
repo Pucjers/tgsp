@@ -19,7 +19,8 @@ from app.utils.file_utils import (
     get_account_lists,
     get_accounts_meta,
     save_accounts_meta,
-    get_proxies
+    get_proxies,
+    update_account_proxy
 )
 from app.api.accounts.services import (
     get_filtered_accounts,
@@ -39,6 +40,7 @@ from app.services.account_integration import (
     check_accounts_sync,
     configure_proxy,
     TELETHON_AVAILABLE,
+    OPENTELE_AVAILABLE,
     load_api_credentials
 )
 
@@ -197,11 +199,9 @@ def import_session():
 @accounts_bp.route('/import-tdata-zip', methods=['POST'])
 def import_tdata_zip_route():
     """Import account from TData ZIP file"""
-    # Check if TData support is available
     if not OPENTELE_AVAILABLE:
         return jsonify({"error": "TData import is not supported in this installation"}), 400
     
-    # Check if TData file is provided
     if 'tdata_zip' not in request.files:
         return jsonify({"error": "No TData file provided"}), 400
     
@@ -212,121 +212,91 @@ def import_tdata_zip_route():
     if not tdata_zip.filename.endswith('.zip'):
         return jsonify({"error": "File must be a .zip file"}), 400
     
-    # Get other parameters
     target_list_id = request.form.get('target_list_id', 'main')
     proxy_id = request.form.get('proxy_id')
     
     if not proxy_id:
         return jsonify({"error": "Proxy ID is required"}), 400
     
-    # Verify proxy exists and can accept more accounts
     proxy = get_proxy_by_id(proxy_id)
     if not proxy:
         return jsonify({"error": "Proxy not found"}), 404
     
-    # Check if proxy can accept more accounts
     proxy_accounts = proxy.get('accounts', [])
     if len(proxy_accounts) >= 3:
         return jsonify({"error": "Proxy has reached the maximum number of accounts (3)"}), 400
     
-    # Configure proxy for Telethon
     proxy_config = configure_proxy(proxy)
-    
-    # Process the TData ZIP file
+    temp_zip_path = None
+
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
-            zip_path = temp_zip.name
-            tdata_zip.save(zip_path)
-        
-        # Process the TData ZIP file
-        result = process_tdata_zip(zip_path, proxy_config=proxy_config)
-        
-        # Remove the temporary file
-        try:
-            os.unlink(zip_path)
-        except Exception as e:
-            current_app.logger.warning(f"Failed to remove temporary file: {e}")
+            temp_zip_path = temp_zip.name
+            tdata_zip.save(temp_zip_path)
+
+        result = process_tdata_zip(temp_zip_path, proxy_config=proxy_config)
         
         if "error" in result:
             return jsonify({"error": result["error"]}), 400
-            
-        # If successful, prepare account data
+
         account = result["account"]
-        
-        # Add fields required by the application
-        account["list_ids"] = [target_list_id]
-        account["list_id"] = target_list_id
-        account["proxy_id"] = proxy_id
-        
-        # Remove session_path from the response as it's not needed in the frontend
         session_path = account.pop("session_path", None)
         telegram_id = account.pop("telegram_id", None)
-        
-        # Check if an account with this phone number already exists
-        existing_account = None
-        if account.get('phone'):
-            accounts = get_accounts()
-            existing_account = next((acc for acc in accounts if acc.get('phone') == account['phone']), None)
-        
-        # Get existing metadata
+
+        account.update({
+            "list_ids": [target_list_id],
+            "list_id": target_list_id,
+            "proxy_id": proxy_id
+        })
+
+        accounts = get_accounts()
+        if not isinstance(accounts, list):
+            current_app.logger.error("Critical: get_accounts() returned non-list type")
+            accounts = []
+
+        existing_account = next(
+            (acc for acc in accounts 
+             if acc.get('phone') == account.get('phone')), 
+            None
+        )
+
         accounts_meta = get_accounts_meta()
         
         if existing_account:
-            # Update existing account
-            accounts = get_accounts()
-            account_index = next((i for i, acc in enumerate(accounts) if acc['id'] == existing_account['id']), None)
-            
-            if account_index is not None:
-                # Preserve existing account ID
-                account_id = existing_account['id']
-                account['id'] = account_id
-                
-                # Update account
-                accounts[account_index] = account
-                save_accounts(accounts)
-                
-                # Update metadata
-                accounts_meta[account_id] = {
-                    "session_path": session_path,
-                    "telegram_id": telegram_id
-                }
-                save_accounts_meta(accounts_meta)
-                
-                # Update proxy association
-                from app.utils.file_utils import update_account_proxy
-                update_account_proxy(account_id, proxy_id)
-                
-                return jsonify({
-                    "success": True,
-                    "account": account,
-                    "updated": True
-                })
+            account['id'] = existing_account['id']
+            account_index = next(i for i, acc in enumerate(accounts) if acc['id'] == account['id'])
+            accounts[account_index] = account
+            accounts_meta[account['id']] = {
+                "session_path": session_path,
+                "telegram_id": telegram_id
+            }
         else:
-            # Save the new account
-            accounts = get_accounts()
             accounts.append(account)
-            save_accounts(accounts)
-            
-            # Save metadata
             accounts_meta[account["id"]] = {
                 "session_path": session_path,
                 "telegram_id": telegram_id
             }
-            save_accounts_meta(accounts_meta)
-            
-            # Update proxy association
-            from app.utils.file_utils import update_account_proxy
-            update_account_proxy(account["id"], proxy_id)
-            
-            return jsonify({
-                "success": True,
-                "account": account,
-                "updated": False
-            })
-            
+
+        save_accounts(accounts)
+        save_accounts_meta(accounts_meta)
+        update_account_proxy(account['id'], proxy_id)
+
+        return jsonify({
+            "success": True,
+            "account": account,
+            "updated": bool(existing_account)
+        })
+
     except Exception as e:
-        current_app.logger.error(f"Error in import_tdata_zip: {str(e)}")
-        return jsonify({"error": f"Error importing TData: {str(e)}"}), 500
+        current_app.logger.error(f"TData import error: {str(e)}", exc_info=True)
+        return jsonify({"error": f"Processing error: {str(e)}"}), 500
+    
+    finally:
+        if temp_zip_path and os.path.exists(temp_zip_path):
+            try:
+                os.unlink(temp_zip_path)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to clean up temp file: {str(e)}")
 
 @accounts_bp.route('/request-code', methods=['POST'])
 def request_verification_code_route():

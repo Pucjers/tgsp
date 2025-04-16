@@ -358,7 +358,15 @@ async def extract_account_info_from_tdata(tdata_path: str, proxy_config: Optiona
         api_id, api_hash = load_api_credentials()
         
         # Convert to Telethon and connect
-        client = await tdesk.ToTelethon(flag=UseCurrentSession, api=f'{api_id} {api_hash}', proxy=proxy_config)
+        # Note the API format change - using separate arguments instead of f-string
+        client = await tdesk.ToTelethon(
+            session=os.path.join(SESSIONS_DIR, "temp_session"),  # Temporary session path
+            flag=UseCurrentSession,
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy=proxy_config
+        )
+        
         await client.connect()
         
         if not await client.is_user_authorized():
@@ -378,7 +386,13 @@ async def extract_account_info_from_tdata(tdata_path: str, proxy_config: Optiona
         await client.disconnect()
         
         # Reconnect and save session to the specified path
-        client = await tdesk.ToTelethon(session=session_path, flag=UseCurrentSession, api=f'{api_id} {api_hash}', proxy=proxy_config)
+        client = await tdesk.ToTelethon(
+            session=session_path,
+            flag=UseCurrentSession,
+            api_id=api_id,
+            api_hash=api_hash,
+            proxy=proxy_config
+        )
         await client.connect()
         
         # Check if premium
@@ -455,69 +469,45 @@ async def extract_account_info_from_tdata(tdata_path: str, proxy_config: Optiona
         return {"error": f"Error extracting account info: {str(e)}"}
 
 def import_tdata_zip(zip_path: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """
-    Import a Telegram account from a TData ZIP file
-    
-    Args:
-        zip_path: Path to the TData ZIP file
-        proxy_config: Optional proxy configuration
-        
-    Returns:
-        Dict containing import results
-    """
     if not OPENTELE_AVAILABLE:
         return {"error": "OpenTele library is not available"}
     
     logger.info(f"Starting TData ZIP import from: {zip_path}")
     
-    # Extract the ZIP file
-    extract_result = extract_zip_tdata(zip_path)
-    
-    if "error" in extract_result:
-        logger.error(f"ZIP extraction error: {extract_result['error']}")
-        return extract_result
-    
-    tdata_dir = extract_result["path"]
-    temp_dir = extract_result["temp_dir"]
-    
-    logger.info(f"ZIP extracted, processing TData from: {tdata_dir}")
-    
     try:
-        # Extract API credentials and save them
+        extract_result = extract_zip_tdata(zip_path)
+        if "error" in extract_result:
+            return extract_result  # Already a dict
+        
+        tdata_dir = extract_result["path"]
+        temp_dir = extract_result["temp_dir"]
+        
         api_id, api_hash = load_api_credentials()
         save_api_credentials(api_id, api_hash)
-        
-        # Process the TData
-        logger.info("Running async extract_account_info_from_tdata")
-        # Use an explicit event loop
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         result = loop.run_until_complete(extract_account_info_from_tdata(tdata_dir, proxy_config))
         loop.close()
-        
-        # Clean up the temporary directory
-        logger.info(f"Cleaning up temporary directory: {temp_dir}")
+
         shutil.rmtree(temp_dir, ignore_errors=True)
         
+        if not isinstance(result, dict):
+            logger.error(f"Unexpected result type: {type(result)}")
+            return {"error": "Unexpected response from account extractor"}
+
         if "error" in result:
-            logger.error(f"Account extraction error: {result['error']}")
             return result
         else:
             logger.info(f"Account extraction successful: {result.get('account', {}).get('name')}")
-            return result
-    
+            return {
+                "success": True,
+                "account": result["account"]
+            }
+            
     except Exception as e:
-        error_msg = f"Error processing TData: {str(e)}"
-        logger.error(error_msg)
-        
-        # Clean up in case of error
-        try:
-            logger.info(f"Cleaning up temporary directory after error: {temp_dir}")
-            shutil.rmtree(temp_dir, ignore_errors=True)
-        except Exception as cleanup_error:
-            logger.error(f"Error during cleanup: {cleanup_error}")
-        
-        return {"error": error_msg}
+        logger.error(f"Error processing TData: {str(e)}")
+        return {"error": f"Processing error: {str(e)}"}
 
 #######################
 # PHONE NUMBER IMPORT #
@@ -997,17 +987,21 @@ def configure_proxy(proxy: Dict[str, Any]) -> Dict[str, Any]:
     username = proxy.get('username', '')
     password = proxy.get('password', '')
     
-    proxy_addr = (host, port)
-    proxy_credentials = None
-    
+    # For OpenTele/Telethon, use this format instead
     if username and password:
-        proxy_credentials = (username, password)
-    
-    return {
-        'proxy_type': proxy_type,
-        'addr': proxy_addr,
-        'credentials': proxy_credentials
-    }
+        return {
+            'proxy_type': proxy_type,
+            'addr': host,
+            'port': port,
+            'username': username,
+            'password': password
+        }
+    else:
+        return {
+            'proxy_type': proxy_type,
+            'addr': host,
+            'port': port
+        }
     
 def convert_session_file(session_file_path: str, target_dir: str = SESSIONS_DIR) -> Dict[str, Any]:
     """
@@ -1044,25 +1038,30 @@ def convert_session_file(session_file_path: str, target_dir: str = SESSIONS_DIR)
 def process_tdata_zip(zip_file_path: str, target_dir: str = SESSIONS_DIR, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Process a TData ZIP file and extract account information
-    
+
     Args:
         zip_file_path: Path to the TData ZIP file
         target_dir: Directory to save the extracted session
         proxy_config: Optional proxy configuration
-        
+
     Returns:
         Dict containing the result of the extraction
     """
     if not OPENTELE_AVAILABLE:
         return {"error": "OpenTele library is not available"}
-        
+
     try:
-        # Run the import function
         result = import_tdata_zip(zip_file_path, proxy_config)
-        
+
+        # Ensure result is a dictionary, otherwise convert or raise error
+        if not isinstance(result, dict):
+            logger.error(f"process_tdata_zip: Unexpected type returned: {type(result)}")
+            return {"error": f"Internal error: Unexpected return type: {type(result)}"}
+
         return result
+
     except Exception as e:
-        logger.error(f"Error processing TData ZIP: {e}")
+        logger.exception("process_tdata_zip failed")
         return {
             "error": f"Failed to process TData ZIP: {str(e)}"
         }

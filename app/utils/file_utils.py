@@ -2,6 +2,9 @@ import os
 import json
 from typing import List, Dict, Any, Optional
 from flask import current_app
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_data_directory():
@@ -9,22 +12,22 @@ def ensure_data_directory():
     os.makedirs(current_app.config.get('DATA_DIR', 'data'), exist_ok=True)
 
 
-def get_accounts() -> List[Dict[str, Any]]:
-    """Load accounts from JSON file"""
-    accounts_file = current_app.config.get('ACCOUNTS_FILE', 'data/accounts.json')
-    ensure_data_directory()
-    
-    if not os.path.exists(accounts_file):
-        with open(accounts_file, 'w') as f:
-            json.dump([], f)
-        return []
-    
+
+def get_accounts() -> list:
+    """Get all accounts from storage. Always returns a list."""
     try:
-        with open(accounts_file, 'r') as f:
+        # Load accounts from file/database
+        with open('data/accounts.json', 'r', encoding='utf-8') as f:
             return json.load(f)
-    except Exception as e:
-        current_app.logger.error(f"Error loading accounts: {e}")
+    except FileNotFoundError:
+        logger.warning("Accounts file not found. Returning empty list.")
         return []
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in accounts file: {str(e)}")
+        return []
+    except Exception as e:
+        logger.error(f"Error loading accounts: {str(e)}")
+        return []  # Always return a list, even on failure
 
 
 def save_accounts(accounts: List[Dict[str, Any]]) -> bool:
