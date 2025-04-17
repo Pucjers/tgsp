@@ -42,6 +42,7 @@ document.addEventListener("DOMContentLoaded", function() {
     waitMaxInput: document.getElementById('waitMax'),
     documentFileInput: document.getElementById('document-file-input'),
     accountFilter: document.getElementById('account-filter'),
+    selectAllAccountsCheckbox: document.getElementById('select-all-accounts'),
 
     // Checkboxes
     sendModeRadios: document.getElementsByName('sendMode'),
@@ -72,7 +73,6 @@ document.addEventListener("DOMContentLoaded", function() {
     yesterdayCounter: document.getElementById('yesterday-counter'),
     totalCounter: document.getElementById('total-counter')
   };
-
   // API functions for interacting with the backend
   const api = {
     async getAccounts(listId = 'all') {
@@ -640,6 +640,38 @@ document.addEventListener("DOMContentLoaded", function() {
       });
     }
 
+    // Select All Accounts checkbox
+    if (elements.selectAllAccountsCheckbox) {
+      elements.selectAllAccountsCheckbox.addEventListener('change', (e) => {
+        const checkboxes = document.querySelectorAll('.account-checkbox');
+        checkboxes.forEach(checkbox => {
+          checkbox.checked = e.target.checked;
+          const accountId = checkbox.dataset.id;
+          const card = checkbox.closest('.account-card');
+          
+          toggleAccountSelection(accountId, e.target.checked);
+          if (card) {
+            if (e.target.checked) {
+              card.classList.add('selected');
+            } else {
+              card.classList.remove('selected');
+            }
+          }
+        });
+      });
+    }
+
+    // Account filter change
+    if (elements.accountFilter) {
+      elements.accountFilter.addEventListener('change', (e) => {
+        // Reset select all checkbox when changing filter
+        if (elements.selectAllAccountsCheckbox) {
+          elements.selectAllAccountsCheckbox.checked = false;
+        }
+        loadAccounts(e.target.value);
+      });
+    }
+
     // Confirm accounts with improved UI feedback
     if (elements.confirmAccountsBtn) {
       elements.confirmAccountsBtn.addEventListener('click', () => {
@@ -705,13 +737,6 @@ document.addEventListener("DOMContentLoaded", function() {
         }
       });
     }
-
-    // Account filter change
-    if (elements.accountFilter) {
-      elements.accountFilter.addEventListener('change', (e) => {
-        loadAccounts(e.target.value);
-      });
-    }
     
     // Modal close buttons
     document.querySelectorAll('[data-close-modal]').forEach(button => {
@@ -768,7 +793,17 @@ document.addEventListener("DOMContentLoaded", function() {
     // Render accounts list
     if (!accounts || !accounts.length) {
       elements.accountsList.innerHTML = '<div class="empty-accounts-message">Нет доступных аккаунтов</div>';
+      // Update select all checkbox state
+      if (elements.selectAllAccountsCheckbox) {
+        elements.selectAllAccountsCheckbox.checked = false;
+        elements.selectAllAccountsCheckbox.disabled = true;
+      }
       return;
+    }
+    
+    // Enable select all checkbox
+    if (elements.selectAllAccountsCheckbox) {
+      elements.selectAllAccountsCheckbox.disabled = false;
     }
     
     let html = '';
@@ -797,6 +832,9 @@ document.addEventListener("DOMContentLoaded", function() {
     
     elements.accountsList.innerHTML = html;
     
+    // Update select all checkbox state
+    updateSelectAllCheckboxState();
+    
     // Attach event listeners to account cards
     document.querySelectorAll('.account-card').forEach(card => {
       card.addEventListener('click', (e) => {
@@ -810,9 +848,27 @@ document.addEventListener("DOMContentLoaded", function() {
         
         toggleAccountSelection(accountId, checkbox.checked);
         card.classList.toggle('selected');
+        
+        // Update the select all checkbox state
+        updateSelectAllCheckboxState();
       });
     });
-    
+    function updateSelectAllCheckboxState() {
+      if (!elements.selectAllAccountsCheckbox) return;
+      
+      const checkboxes = document.querySelectorAll('.account-checkbox');
+      const checkedCount = document.querySelectorAll('.account-checkbox:checked').length;
+      
+      if (checkboxes.length === 0) {
+        elements.selectAllAccountsCheckbox.checked = false;
+        elements.selectAllAccountsCheckbox.disabled = true;
+      } else {
+        elements.selectAllAccountsCheckbox.disabled = false;
+        elements.selectAllAccountsCheckbox.checked = checkedCount > 0 && checkedCount === checkboxes.length;
+        // Set indeterminate state if some (but not all) are checked
+        elements.selectAllAccountsCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+      }
+    }
     // Attach event listeners to checkboxes
     document.querySelectorAll('.account-checkbox').forEach(checkbox => {
       checkbox.addEventListener('change', (e) => {
@@ -820,7 +876,12 @@ document.addEventListener("DOMContentLoaded", function() {
         const card = e.target.closest('.account-card');
         
         toggleAccountSelection(accountId, e.target.checked);
-        card.classList.toggle('selected');
+        if (card) {
+          card.classList.toggle('selected', e.target.checked);
+        }
+        
+        // Update the select all checkbox state
+        updateSelectAllCheckboxState();
       });
     });
   }
