@@ -31,7 +31,6 @@ document.addEventListener("DOMContentLoaded", function() {
     addDocumentBtn: document.getElementById('add-document-btn'),
     addDocumentConfirmBtn: document.getElementById('add-document-confirm-btn'),
     removeDocumentBtn: document.getElementById('remove-document-btn'),
-    proxyWarningConfirmBtn: document.getElementById('proxy-warning-confirm-btn'),
 
     // Inputs
     taskNameInput: document.getElementById('taskName'),
@@ -57,7 +56,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Containers
     singleMessageContainer: document.getElementById('single-message-container'),
+    fileMessageContainer: document.getElementById('file-message-container'),
+    repostMessageContainer: document.getElementById('repost-message-container'),
     groupChatContainer: document.getElementById('group-chat-container'),
+    singleChatContainer: document.getElementById('single-chat-container'),
     repeatIntervalContainer: document.getElementById('repeat-interval-container'),
     selectedAccountsContainer: document.getElementById('selected-accounts-container'),
     accountsList: document.getElementById('accounts-list'),
@@ -66,7 +68,6 @@ document.addEventListener("DOMContentLoaded", function() {
     documentSize: document.getElementById('document-size'),
     documentIcon: document.getElementById('document-icon'),
     selectedFileName: document.getElementById('selected-file-name'),
-    proxyWarningOverlay: document.getElementById('proxy-warning-overlay'),
     
     // Stats counters
     todayCounter: document.getElementById('today-counter'),
@@ -245,7 +246,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   // Initialize everything
   function init() {
-    injectStyles();
+    loadStyles();
     loadAccountLists();
     loadTasks();
     attachEventListeners();
@@ -260,7 +261,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Populate account filter dropdown
     if (elements.accountFilter) {
-      let options = '<option value="all">Все аккаунты</option>';
+      let options = '<option value="all">All Accounts</option>';
       lists.forEach(list => {
         options += `<option value="${list.id}">${list.name}</option>`;
       });
@@ -1222,308 +1223,13 @@ document.addEventListener("DOMContentLoaded", function() {
       }, 10);
     }
   }
-  function injectStyles() {
-    const broadcasterStyles = document.createElement('style');
-    broadcasterStyles.textContent = `
-      /* Enhanced Broadcaster Modal Styles */
-      /* These styles improve the modal appearance and functionality */
-      
-      /* Wider modal */
-      .wider-modal {
-          max-width: 700px !important;
-          width: 90% !important;
-      }
-      
-      /* Input container */
-      .input-container {
-          position: relative;
-          width: 100%;
-      }
-      
-      /* File upload container */
-      .file-upload-container {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-      }
-      
-      .file-upload-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 8px 16px;
-          background-color: var(--primary-color);
-          color: white;
-          border-radius: var(--border-radius);
-          cursor: pointer;
-          font-weight: 500;
-          transition: var(--transition);
-      }
-      
-      .file-upload-btn:hover {
-          background-color: var(--primary-hover);
-      }
-      
-      .file-name {
-          color: var(--text-light);
-      }
-      
-      .hidden-input {
-          display: none;
-      }
-      
-      /* Radio and checkbox options */
-      .radio-options, .checkbox-options {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-      }
-      
-      .radio-option, .checkbox-option {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          cursor: pointer;
-      }
-      
-      .radio-option input, .checkbox-option input {
-          margin-top: 3px;
-      }
-      
-      /* Message container */
-      .message-container {
-          margin-left: 24px;
-          margin-top: 8px;
-          margin-bottom: 12px;
-      }
-      
-      .message-textarea {
-          width: 100%;
-          padding: 10px 12px;
-          border: 1px solid var(--border-color);
-          border-radius: var(--border-radius);
-          resize: vertical;
-          min-height: 100px;
-          font-family: inherit;
-          font-size: inherit;
-          transition: var(--transition);
-      }
-      
-      .message-textarea:focus {
-          outline: none;
-          border-color: var(--primary-color);
-          box-shadow: 0 0 0 2px rgba(62, 142, 208, 0.2);
-      }
-      
-      .document-btn-container {
-          display: flex;
-          justify-content: flex-end;
-          margin-top: 8px;
-      }
-      
-      .document-btn {
-          background: none;
-          border: none;
-          color: var(--primary-color);
-          cursor: pointer;
-          font-size: 13px;
-          padding: 6px 10px;
-          border-radius: var(--border-radius);
-          transition: var(--transition);
-      }
-      
-      .document-btn:hover {
-          background-color: rgba(62, 142, 208, 0.1);
-      }
-      
-      /* Chat count container */
-      .chat-count-container {
-          margin-left: 24px;
-          margin-top: 8px;
-          margin-bottom: 12px;
-      }
-      
-      .chat-count-input {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-      }
-      
-      .number-input {
-          width: 60px;
-          padding: 6px 8px;
-          border: 1px solid var(--border-color);
-          border-radius: var(--border-radius);
-          transition: var(--transition);
-      }
-      
-      .number-input:focus {
-          outline: none;
-          border-color: var(--primary-color);
-          box-shadow: 0 0 0 2px rgba(62, 142, 208, 0.2);
-      }
-      
-      .help-text {
-          font-size: 12px;
-          color: var(--text-light);
-          margin-top: 6px;
-          margin-left: 4px;
-      }
-      
-      /* Repeat interval */
-      .repeat-interval {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-left: 24px;
-          margin-top: 8px;
-          padding: 8px 12px;
-          background-color: rgba(0, 0, 0, 0.02);
-          border-radius: var(--border-radius);
-      }
-      
-      /* Account selection */
-      .account-selection-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 15px;
-          padding-top: 15px;
-          border-top: 1px solid var(--border-color);
-      }
-      
-      .select-accounts-btn {
-          background-color: var(--primary-color);
-          color: white;
-          padding: 8px 16px;
-          border: none;
-          border-radius: var(--border-radius);
-          font-weight: 500;
-          cursor: pointer;
-          transition: var(--transition);
-      }
-      
-      .select-accounts-btn:hover {
-          background-color: var(--primary-hover);
-      }
-      
-      .select-accounts-btn.accounts-selected {
-          background-color: var(--success-color);
-      }
-      
-      .selected-accounts {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-          gap: 12px;
-          margin-top: 15px;
-      }
-      
-      .empty-accounts-message {
-        padding: 30px 20px;
-        text-align: center;
-        color: var(--text-light);
-      }
-      
-      .no-accounts-selected {
-        padding: 15px;
-        text-align: center;
-        color: var(--text-light);
-        font-style: italic;
-      }
-      
-      /* Account selection modal */
-      .account-filter-container {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 15px;
-      }
-      
-      .account-filter {
-          flex: 1;
-          padding: 8px 12px;
-          border: 1px solid var(--border-color);
-          border-radius: var(--border-radius);
-      }
-      
-      .accounts-selection-list {
-          max-height: 400px;
-          overflow-y: auto;
-          border: 1px solid var(--border-color);
-          border-radius: var(--border-radius);
-          padding: 10px;
-      }
-      
-      .account-card {
-          padding: 10px;
-          border-radius: var(--border-radius);
-          border: 1px solid var(--border-color);
-          margin-bottom: 8px;
-          transition: var(--transition);
-          cursor: pointer;
-      }
-      
-      .account-card:hover {
-          border-color: var(--primary-color);
-          background-color: rgba(62, 142, 208, 0.05);
-      }
-      
-      .account-card.selected {
-          border-color: var(--primary-color);
-          background-color: rgba(62, 142, 208, 0.1);
-      }
-      
-      .account-card-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      
-      .account-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        overflow: hidden;
-        background-color: var(--light-bg);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      .account-avatar-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-      
-      .account-avatar-placeholder {
-        color: var(--text-light);
-      }
-      
-      .account-details {
-        flex: 1;
-      }
-      
-      .account-name {
-        font-weight: 500;
-      }
-      
-      .account-phone {
-        font-size: 12px;
-        color: var(--text-light);
-      }
-      
-      .account-checkbox-wrapper {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      
+  function loadStyles() {
+    const styles = `
       .selected-account-card {
         padding: 10px;
-        border-radius: var(--border-radius);
-        border: 1px solid var(--border-color);
-        transition: var(--transition);
+        border-radius: 8px;
+        border: 1px solid #e0e5ec;
+        transition: all 0.2s ease;
       }
       
       .selected-account-card:hover {
@@ -1541,7 +1247,7 @@ document.addEventListener("DOMContentLoaded", function() {
         height: 36px;
         border-radius: 50%;
         overflow: hidden;
-        background-color: var(--light-bg);
+        background-color: #f5f7fa;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1554,7 +1260,7 @@ document.addEventListener("DOMContentLoaded", function() {
       }
       
       .selected-account-placeholder {
-        color: var(--text-light);
+        color: #7a7a7a;
       }
       
       .selected-account-details {
@@ -1567,43 +1273,71 @@ document.addEventListener("DOMContentLoaded", function() {
       
       .selected-account-phone {
         font-size: 12px;
-        color: var(--text-light);
+        color: #7a7a7a;
       }
       
-      /* Dark theme adjustments */
-      [data-theme="dark"] .document-upload-area {
-          background-color: var(--bg-white);
+      .account-card {
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #e0e5ec;
+        margin-bottom: 8px;
+        transition: all 0.2s ease;
+        cursor: pointer;
       }
       
-      [data-theme="dark"] .repeat-interval {
-          background-color: rgba(255, 255, 255, 0.05);
+      .account-card:hover {
+        border-color: #3e8ed0;
+        background-color: rgba(62, 142, 208, 0.05);
       }
       
-      [data-theme="dark"] .document-btn:hover {
-          background-color: rgba(62, 142, 208, 0.2);
+      .account-card.selected {
+        border-color: #3e8ed0;
+        background-color: rgba(62, 142, 208, 0.1);
       }
       
-      [data-theme="dark"] .remove-document-btn:hover {
-          background-color: rgba(241, 70, 104, 0.2);
+      .account-card-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
       
-      [data-theme="dark"] .cancel-btn:hover {
-          background-color: rgba(255, 255, 255, 0.1);
+      .no-accounts-selected {
+        padding: 15px;
+        text-align: center;
+        color: #7a7a7a;
+        font-style: italic;
       }
       
-      [data-theme="dark"] .account-card:hover {
-          background-color: rgba(62, 142, 208, 0.15);
+      #toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        z-index: 9999;
+        transform: translateY(100px);
+        opacity: 0;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        max-width: 300px;
       }
       
-      [data-theme="dark"] .account-card.selected {
-          background-color: rgba(62, 142, 208, 0.2);
+      #toast.visible {
+        transform: translateY(0);
+        opacity: 1;
       }
       
-      [data-theme="dark"] .selected-account-card:hover {
-          background-color: rgba(255, 255, 255, 0.05);
-      }
+      #toast.info { background-color: #3e8ed0; }
+      #toast.success { background-color: #48c78e; }
+      #toast.error { background-color: #f14668; }
+      #toast.warning { background-color: #f39c12; }
     `;
-    document.head.appendChild(broadcasterStyles);
+    
+    const styleEl = document.createElement('style');
+    styleEl.textContent = styles;
+    document.head.appendChild(styleEl);
   }
   // Hide modal
   function hideModal(modalId) {

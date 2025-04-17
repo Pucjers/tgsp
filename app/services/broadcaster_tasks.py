@@ -173,12 +173,15 @@ class BroadcastTask:
                     # Check if we need to join the chat first
                     should_join = self.task_data.get('joinChats', False)
                     
+                    # Process message template
+                    processed_message = format_message_with_template_tags(message, account)
+                    
                     # Send the message
                     result = self._send_message(
                         account, 
                         session_path, 
                         chat_link, 
-                        message, 
+                        processed_message, 
                         proxy_config=proxy_config,
                         join_chat=should_join,
                         hide_source=self.task_data.get('hideSource', False)
@@ -220,12 +223,15 @@ class BroadcastTask:
                 # Get proxy configuration for this account
                 proxy_config = self.proxy_configs.get(account.get('proxy_id'))
                 
+                # Process message template
+                processed_message = format_message_with_template_tags(message, account)
+                
                 # Send the message
                 result = self._send_message(
                     account, 
                     session_path, 
                     chat_link, 
-                    message, 
+                    processed_message, 
                     proxy_config=proxy_config,
                     join_chat=self.task_data.get('joinChats', False),
                     hide_source=self.task_data.get('hideSource', False)
@@ -289,8 +295,8 @@ class BroadcastTask:
             with open(full_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 
-            # Split messages by the delimiter (default: "Test")
-            messages = content.split("Test")
+            # Split messages by the delimiter "[===]"
+            messages = content.split("[===]")
             messages = [msg.strip() for msg in messages if msg.strip()]
             
             if not messages:
@@ -332,12 +338,15 @@ class BroadcastTask:
                         # Select a random message from the list
                         message = random.choice(messages)
                         
+                        # Process template tags
+                        processed_message = format_message_with_template_tags(message, account)
+                        
                         # Send the message
                         result = self._send_message(
                             account, 
                             session_path, 
                             chat_link, 
-                            message, 
+                            processed_message, 
                             proxy_config=proxy_config,
                             join_chat=self.task_data.get('joinChats', False),
                             hide_source=self.task_data.get('hideSource', False)
@@ -383,12 +392,15 @@ class BroadcastTask:
                     # Select a random message from the list
                     message = random.choice(messages)
                     
+                    # Process template tags
+                    processed_message = format_message_with_template_tags(message, account)
+                    
                     # Send the message
                     result = self._send_message(
                         account, 
                         session_path, 
                         chat_link, 
-                        message, 
+                        processed_message, 
                         proxy_config=proxy_config,
                         join_chat=self.task_data.get('joinChats', False),
                         hide_source=self.task_data.get('hideSource', False)
@@ -448,7 +460,7 @@ class BroadcastTask:
         # I'll implement a simulation for now. In a real implementation, you would use
         # the Telegram API to get messages and forward them.
         
-        logger.info(f"Simulating repost from source chat: {source_chat}")
+        logger.info(f"Processing repost from source chat: {source_chat}")
         
         # Create a sample message that indicates it's a repost
         repost_message = f"This is a repost from {source_chat}.\n\nSample content would appear here."
@@ -583,7 +595,7 @@ class BroadcastTask:
         """Send a message to a chat"""
         try:
             # Process message template replacements
-            processed_message = self._process_message_template(message, account)
+            processed_message = format_message_with_template_tags(message, account)
             
             logger.info(f"Sending message from {account.get('name')} to {chat_link}")
             

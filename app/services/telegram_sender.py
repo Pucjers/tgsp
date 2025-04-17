@@ -68,7 +68,9 @@ async def send_message_async(
     message_text: str,
     image_paths: List[str] = None,
     proxy_config: Optional[Dict[str, Any]] = None,
-    timeout: int = 60
+    timeout: int = 60,
+    join_chat: bool = False,
+    hide_source: bool = False
 ) -> Dict[str, Any]:
     """
     Send a message to a Telegram group using Telethon client
@@ -80,6 +82,8 @@ async def send_message_async(
         image_paths: Optional list of image paths to send
         proxy_config: Optional proxy configuration
         timeout: Timeout in seconds for the operation
+        join_chat: Whether to try joining the chat first
+        hide_source: Whether to hide forwarding source (for repost mode)
         
     Returns:
         Dictionary with result information
@@ -193,221 +197,15 @@ async def send_message_async(
                 logger.error(f"Timed out getting entity for {group_id}")
                 return {
                     "success": False,
-                    "error": f"Timed out getting group info: {group_id}"
-                }
-            
-        except Exception as e:
-            await client.disconnect()
-            logger.error(f"Error getting group entity: {e}")
-            return {
-                "success": False,
-                "error": f"Could not find group: {str(e)}"
-            }
-            
-        # If all went well, proceed with sending the message
-        try:
-            # Try to join the chat if it's a public channel
-            try:
-                if hasattr(entity, 'username') and entity.username:
-                    logger.info(f"Attempting to join group: {entity.username}")
-                    await client(JoinChannelRequest(entity))
-                    logger.info(f"Successfully joined group: {entity.username}")
-                elif hasattr(entity, 'access_hash') and entity.access_hash:
-                    logger.info(f"Attempting to join group with access hash")
-                    await client(JoinChannelRequest(InputChannel(entity.id, entity.access_hash)))
-                    logger.info(f"Successfully joined group with access hash")
-                else:
-                    logger.warning("Unable to determine how to join this group/channel")
-            except Exception as join_error:
-                # If we can't join, log it but continue trying to send the message
-                # as the error might be because we're already a member
-                logger.warning(f"Error joining group: {join_error}")
-                
-            # If we have images, send them with the message
-            if image_paths and len(image_paths) > 0:
-                logger.info(f"Sending message with {len(image_paths)} images")
-                
-                # Check each image path to ensure it exists
-                valid_paths = []
-                for path in image_paths:
-                    if os.path.exists(path):
-                        logger.info(f"Image file found: {path} ({os.path.getsize(path)} bytes)")
-                        valid_paths.append(path)
-                    else:
-                        logger.warning(f"Image file not found: {path}")
-                
-                # Skip sending if no valid images found
-                if not valid_paths:
-                    logger.warning("No valid image files found, sending text only")
-                    try:
-                        result = await asyncio.wait_for(
-                            client.send_message(
-                                entity,
-                                message_text,
-                                parse_mode='html'
-                            ),
-                            timeout=15.0  # 15 second timeout for sending text
-                        )
-                        
-                        logger.info(f"Text message sent successfully: {result.id}")
-                    except asyncio.TimeoutError:
-                        logger.error("Timed out sending text message")
-                        await client.disconnect()
-                        return {
-                            "success": False,
-                            "error": "Timed out sending text message"
-                        }
-                else:
-                    # Send message with media with timeout
-                    try:
-                        logger.info("Sending message with images (with timeout)...")
-                        # If there's only one image, send it directly
-                        if len(valid_paths) == 1:
-                            result = await asyncio.wait_for(
-                                client.send_file(
-                                    entity,
-                                    valid_paths[0],  # Send single file
-                                    caption=message_text,
-                                    parse_mode='html'
-                                ),
-                                timeout=30.0  # 30 second timeout for sending files
-                            )
-                        else:
-                            # For multiple images, we need to send them as an album
-                            # Create media list
-                            media = []
-                            for path in valid_paths:
-                                # Determine if it's a photo or document based on extension
-                                ext = os.path.splitext(path)[1].lower()
-                                if ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
-                                    media.append(InputMediaUploadedPhoto(
-                                        file=await client.upload_file(path)
-                                    ))
-                                else:
-                                    media.append(InputMediaUploadedDocument(
-                                        file=await client.upload_file(path),
-                                        mime_type='application/octet-stream',
-                                        attributes=[]
-                                    ))
-                            
-                            # Send the album with caption only on the first media item
-                            result = await asyncio.wait_for(
-                                client.send_message(
-                                    entity,
-                                    message=message_text,
-                                    file=media,
-                                    parse_mode='html'
-                                ),
-                                timeout=60.0  # longer timeout for albums
-                            )
-                        
-                        logger.info(f"Message with media sent successfully: {result.id}")
-                    except asyncio.TimeoutError:
-                        logger.error("Timed out sending message with images")
-                        await client.disconnect()
-                        return {
-                            "success": False,
-                            "error": "Timed out sending message with images"
-                        }
-                
-            else:
-                # Send text message only with timeout
-                logger.info(f"Sending text message")
-                try:
-                    result = await asyncio.wait_for(
-                        client.send_message(
-                            entity,
-                            message_text,
-                            parse_mode='html'
-                        ),
-                        timeout=15.0  # 15 second timeout for sending text
-                    )
-                    
-                    logger.info(f"Text message sent successfully: {result.id}")
-                except asyncio.TimeoutError:
-                    logger.error("Timed out sending text message")
-                    await client.disconnect()
-                    return {
-                        "success": False,
-                        "error": "Timed out sending text message"
-                    }
-                
-            # Disconnect the client
-            await client.disconnect()
-            
-            return {
-                "success": True,
-                "message": "Message sent successfully",
-                "message_id": getattr(result, 'id', None)
-            }
-            
-        except FloodWaitError as e:
-            # Telegram is asking us to wait
-            await client.disconnect()
-            logger.error(f"FloodWaitError: Need to wait {e.seconds} seconds")
-            
-            # Calculate the time when the account will be available again
-            cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=e.seconds)
-            
-            return {
-                "success": False,
-                "error": f"Rate limited: need to wait {e.seconds} seconds",
-                "cooldown_until": cooldown_until.isoformat(),
-                "error_type": "flood_wait"
-            }
-            
-        except ChatAdminRequiredError:
-            await client.disconnect()
-            logger.error("ChatAdminRequiredError: Need admin rights")
-            return {
-                "success": False,
-                "error": "Need admin rights to send messages to this group",
-                "error_type": "admin_required"
-            }
-            
-        except ChannelPrivateError:
-            await client.disconnect()
-            logger.error("ChannelPrivateError: Channel is private")
-            return {
-                "success": False,
-                "error": "Cannot access this private channel/group",
-                "error_type": "channel_private"
-            }
-            
-        except UserBannedInChannelError:
-            await client.disconnect()
-            logger.error("UserBannedInChannelError: User is banned")
-            return {
-                "success": False,
-                "error": "This account is banned from the group",
-                "error_type": "user_banned"
-            }
-            
-        except SessionPasswordNeededError:
-            await client.disconnect()
-            logger.error("SessionPasswordNeededError: Two-factor authentication required")
-            return {
-                "success": False,
-                "error": "Two-factor authentication is enabled on this account",
-                "error_type": "2fa_required"
-            }
-            
-        except AuthKeyUnregisteredError:
-            await client.disconnect()
-            logger.error("AuthKeyUnregisteredError: Session is no longer valid")
-            return {
-                "success": False,
-                "error": "Session is no longer valid",
-                "error_type": "session_invalid"
-            }
-            
-        except Exception as e:
-            await client.disconnect()
-            logger.error(f"Error sending message: {e}")
-            return {
-                "success": False,
-                "error": f"Failed to send message: {str(e)}",
+                    "error": f"Failed to send message: {str(e)}",
                 "error_type": "general_error"
+            }
+
+        except Exception as e:
+            logger.error(f"Unexpected error in send_message_async: {e}")
+            return {
+                "success": False,
+                "error": f"Unexpected error: {str(e)}"
             }
             
     except Exception as e:
@@ -429,7 +227,9 @@ def send_message(
     message_text: str,
     image_paths: List[str] = None,
     proxy_config: Optional[Dict[str, Any]] = None,
-    timeout: int = 60
+    timeout: int = 60,
+    join_chat: bool = False,
+    hide_source: bool = False
 ) -> Dict[str, Any]:
     """
     Synchronous wrapper for the async send_message_async function
@@ -441,6 +241,8 @@ def send_message(
         image_paths: Optional list of image paths to send
         proxy_config: Optional proxy configuration
         timeout: Timeout in seconds for the operation
+        join_chat: Whether to try joining the chat first
+        hide_source: Whether to hide forwarding source (for repost mode)
         
     Returns:
         Dictionary with result information
@@ -461,7 +263,9 @@ def send_message(
                 message_text=message_text,
                 image_paths=image_paths,
                 proxy_config=proxy_config,
-                timeout=timeout
+                timeout=timeout,
+                join_chat=join_chat,
+                hide_source=hide_source
             )
         )
         loop.close()
@@ -471,6 +275,507 @@ def send_message(
         return {
             "success": False,
             "error": f"Error in message sending wrapper: {str(e)}"
+        }
+    
+def forward_message(
+    session_path: str, 
+    source_chat: str, 
+    target_chat: str, 
+    message_ids: Union[int, List[int]], 
+    proxy_config: Optional[Dict[str, Any]] = None,
+    hide_source: bool = False
+) -> Dict[str, Any]:
+    """
+    Forward a message from one chat to another
+    
+    Args:
+        session_path: Path to the .session file for the account
+        source_chat: Source chat ID or username
+        target_chat: Target chat ID or username
+        message_ids: ID or list of IDs of messages to forward
+        proxy_config: Optional proxy configuration
+        hide_source: Whether to hide the original source
+        
+    Returns:
+        Dictionary with result information
+    """
+    if not TELETHON_AVAILABLE:
+        return {
+            "success": False,
+            "error": "Telethon library is not available"
+        }
+    
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(
+            forward_message_async(
+                session_path=session_path,
+                source_chat=source_chat,
+                target_chat=target_chat,
+                message_ids=message_ids,
+                proxy_config=proxy_config,
+                hide_source=hide_source
+            )
+        )
+        loop.close()
+        return result
+    except Exception as e:
+        logger.error(f"Error in forward_message wrapper: {e}")
+        return {
+            "success": False,
+            "error": f"Error in message forwarding wrapper: {str(e)}"
+        }
+async def forward_message_async(
+    session_path: str, 
+    source_chat: str, 
+    target_chat: str, 
+    message_ids: Union[int, List[int]], 
+    proxy_config: Optional[Dict[str, Any]] = None,
+    hide_source: bool = False
+) -> Dict[str, Any]:
+    """
+    Forward a message from one chat to another (async version)
+    
+    Args:
+        session_path: Path to the .session file for the account
+        source_chat: Source chat ID or username
+        target_chat: Target chat ID or username
+        message_ids: ID or list of IDs of messages to forward
+        proxy_config: Optional proxy configuration
+        hide_source: Whether to hide the original source
+        
+    Returns:
+        Dictionary with result information
+    """
+    if not TELETHON_AVAILABLE:
+        return {
+            "success": False,
+            "error": "Telethon library is not available"
+        }
+    
+    client = None
+    try:
+        # Load API credentials
+        api_id, api_hash = load_api_credentials()
+        
+        # Check if session file exists
+        if not os.path.exists(session_path):
+            logger.error(f"Session file not found: {session_path}")
+            return {
+                "success": False,
+                "error": "Session file not found"
+            }
+        
+        # Extract session name (without .session extension)
+        session_name = os.path.splitext(os.path.basename(session_path))[0]
+        session_dir = os.path.dirname(session_path)
+        
+        logger.info(f"Connecting to Telegram with session name: {session_name} for forwarding")
+        
+        # Create client
+        client = TelegramClient(
+            os.path.join(session_dir, session_name), 
+            api_id, 
+            api_hash,
+            proxy=proxy_config
+        )
+        
+        # Connect to Telegram
+        await client.connect()
+        
+        # Check if the client is authorized
+        if not await client.is_user_authorized():
+            await client.disconnect()
+            logger.error(f"Client is not authorized: {session_path}")
+            return {
+                "success": False,
+                "error": "Client is not authorized"
+            }
+        
+        # Process chat IDs
+        try:
+            # Get source entity
+            source_entity = await client.get_entity(source_chat)
+            logger.info(f"Found source entity: {source_entity.id}")
+            
+            # Get target entity
+            target_entity = await client.get_entity(target_chat)
+            logger.info(f"Found target entity: {target_entity.id}")
+            
+            # Ensure message_ids is a list
+            if isinstance(message_ids, int):
+                message_ids = [message_ids]
+            
+            # Forward the messages
+            if hide_source:
+                # If hide_source is True, we need to download and resend the messages
+                # instead of using the forward_messages method
+                
+                # First, get the messages to forward
+                messages = await client.get_messages(source_entity, ids=message_ids)
+                
+                forwarded_messages = []
+                for message in messages:
+                    # Forward each message
+                    if message.media:
+                        # If the message has media, download and resend
+                        downloaded_file = await client.download_media(message, file=bytes)
+                        result = await client.send_file(
+                            target_entity,
+                            downloaded_file,
+                            caption=message.text or message.raw_text or "",
+                            parse_mode='html'
+                        )
+                    else:
+                        # If the message is text only, just send the text
+                        result = await client.send_message(
+                            target_entity,
+                            message.text or message.raw_text or "",
+                            parse_mode='html'
+                        )
+                    
+                    forwarded_messages.append(result.id)
+                
+                logger.info(f"Successfully forwarded {len(forwarded_messages)} messages with hidden source")
+                
+                # Disconnect the client
+                await client.disconnect()
+                
+                return {
+                    "success": True,
+                    "message": f"Forwarded {len(forwarded_messages)} messages",
+                    "message_ids": forwarded_messages
+                }
+            else:
+                # Use the forward_messages method
+                result = await client.forward_messages(
+                    target_entity,
+                    message_ids,
+                    source_entity
+                )
+                
+                # Convert result to list if it's a single message
+                if not isinstance(result, list):
+                    result = [result]
+                
+                logger.info(f"Successfully forwarded {len(result)} messages")
+                
+                # Disconnect the client
+                await client.disconnect()
+                
+                return {
+                    "success": True,
+                    "message": f"Forwarded {len(result)} messages",
+                    "message_ids": [m.id for m in result]
+                }
+                
+        except Exception as e:
+            await client.disconnect()
+            logger.error(f"Error forwarding messages: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to forward messages: {str(e)}"
+            }
+    
+    except Exception as e:
+        logger.error(f"Unexpected error in forward_message_async: {e}")
+        try:
+            if 'client' in locals() and client and client.is_connected():
+                await client.disconnect()
+        except:
+            pass
+            
+        return {
+            "success": False,
+            "error": f"Unexpected error: {str(e)}"
+        }
+    
+def join_chat(
+    session_path: str,
+    chat_id: Union[int, str],
+    proxy_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Join a Telegram chat/group/channel
+    
+    Args:
+        session_path: Path to the .session file for the account
+        chat_id: The chat/group/channel ID or username to join
+        proxy_config: Optional proxy configuration
+        
+    Returns:
+        Dictionary with result information
+    """
+    if not TELETHON_AVAILABLE:
+        return {
+            "success": False,
+            "error": "Telethon library is not available"
+        }
+    
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(
+            join_chat_async(
+                session_path=session_path,
+                chat_id=chat_id,
+                proxy_config=proxy_config
+            )
+        )
+        loop.close()
+        return result
+    except Exception as e:
+        logger.error(f"Error in join_chat wrapper: {e}")
+        return {
+            "success": False,
+            "error": f"Error in chat joining wrapper: {str(e)}"
+        }
+async def join_chat_async(
+    session_path: str,
+    chat_id: Union[int, str],
+    proxy_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Join a Telegram chat/group/channel (async version)
+    
+    Args:
+        session_path: Path to the .session file for the account
+        chat_id: The chat/group/channel ID or username to join
+        proxy_config: Optional proxy configuration
+        
+    Returns:
+        Dictionary with result information
+    """
+    if not TELETHON_AVAILABLE:
+        return {
+            "success": False,
+            "error": "Telethon library is not available"
+        }
+    
+    client = None
+    try:
+        # Load API credentials
+        api_id, api_hash = load_api_credentials()
+        
+        # Check if session file exists
+        if not os.path.exists(session_path):
+            logger.error(f"Session file not found: {session_path}")
+            return {
+                "success": False,
+                "error": "Session file not found"
+            }
+        
+        # Extract session name (without .session extension)
+        session_name = os.path.splitext(os.path.basename(session_path))[0]
+        session_dir = os.path.dirname(session_path)
+        
+        logger.info(f"Connecting to Telegram with session name: {session_name} for joining chat")
+        
+        # Create client
+        client = TelegramClient(
+            os.path.join(session_dir, session_name), 
+            api_id, 
+            api_hash,
+            proxy=proxy_config
+        )
+        
+        # Connect to Telegram with timeout protection
+        try:
+            logger.info("Attempting to connect with timeout...")
+            await asyncio.wait_for(client.connect(), timeout=10.0)
+            logger.info("Connection successful")
+        except asyncio.TimeoutError:
+            logger.error("Connection timed out after 10 seconds")
+            if client:
+                await client.disconnect()
+            return {
+                "success": False,
+                "error": "Connection to Telegram timed out"
+            }
+        
+        # Check if the client is authorized with timeout protection
+        try:
+            logger.info("Checking authorization with timeout...")
+            is_authorized = await asyncio.wait_for(client.is_user_authorized(), timeout=5.0)
+            if not is_authorized:
+                await client.disconnect()
+                logger.error(f"Client is not authorized: {session_path}")
+                return {
+                    "success": False,
+                    "error": "Client is not authorized"
+                }
+            logger.info("Authorization successful")
+        except asyncio.TimeoutError:
+            logger.error("Authorization check timed out after 5 seconds")
+            if client:
+                await client.disconnect()
+            return {
+                "success": False,
+                "error": "Authorization check timed out"
+            }
+        
+        # Process chat ID
+        try:
+            # Format the chat_id if it's a string
+            original_chat_id = chat_id  # Keep a copy of the original format
+            
+            if isinstance(chat_id, str):
+                # Remove @ prefix
+                if chat_id.startswith('@'):
+                    chat_id = chat_id[1:]
+                    logger.info(f"Removed @ prefix: {chat_id}")
+                # Handle t.me links
+                elif chat_id.startswith('https://t.me/'):
+                    chat_id = chat_id.split('/')[-1]
+                    logger.info(f"Extracted from https URL: {chat_id}")
+                elif chat_id.startswith('t.me/'):
+                    chat_id = chat_id.split('/')[-1]
+                    logger.info(f"Extracted from t.me URL: {chat_id}")
+                # Handle joinchat links separately
+                elif 'joinchat/' in chat_id:
+                    # Extract the hash part
+                    parts = chat_id.split('joinchat/')
+                    if len(parts) > 1:
+                        invite_hash = parts[1].split('/')[0].split('?')[0]  # Get clean hash
+                        logger.info(f"Extracted invite hash: {invite_hash}")
+                        
+                        # Import chat with the invite hash
+                        try:
+                            from telethon.tl.functions.messages import ImportChatInviteRequest
+                            await client(ImportChatInviteRequest(invite_hash))
+                            logger.info(f"Successfully joined private chat with invite: {invite_hash}")
+                            
+                            # Disconnect and return success
+                            await client.disconnect()
+                            return {
+                                "success": True,
+                                "message": f"Successfully joined private chat with invite: {invite_hash}"
+                            }
+                        except Exception as e:
+                            await client.disconnect()
+                            logger.error(f"Error joining private chat: {e}")
+                            return {
+                                "success": False,
+                                "error": f"Failed to join private chat: {str(e)}"
+                            }
+            
+            # Get entity with timeout
+            logger.info(f"Attempting to get entity for: {chat_id}")
+            
+            try:
+                entity = await asyncio.wait_for(client.get_entity(chat_id), timeout=10.0)
+                logger.info(f"Found entity: {entity.id} ({getattr(entity, 'title', '?')})")
+            except asyncio.TimeoutError:
+                await client.disconnect()
+                logger.error(f"Timed out getting entity for {chat_id}")
+                return {
+                    "success": False,
+                    "error": f"Timed out getting chat info: {chat_id}"
+                }
+            
+            # Join the chat
+            from telethon.tl.functions.channels import JoinChannelRequest
+            from telethon.tl.types import InputChannel
+            
+            if hasattr(entity, 'username') and entity.username:
+                # Public channel/group with username
+                await client(JoinChannelRequest(entity))
+                logger.info(f"Successfully joined public chat: {entity.username}")
+            elif hasattr(entity, 'access_hash') and entity.access_hash:
+                # Channel with access hash but no username
+                try:
+                    await client(JoinChannelRequest(InputChannel(entity.id, entity.access_hash)))
+                    logger.info(f"Successfully joined channel with access hash: {entity.id}")
+                except Exception as e:
+                    # Fallback to standard JoinChannelRequest
+                    await client(JoinChannelRequest(entity))
+                    logger.info(f"Successfully joined entity using standard request: {entity.id}")
+            else:
+                # Try JoinChannelRequest as fallback
+                await client(JoinChannelRequest(entity))
+                logger.info(f"Successfully joined chat using fallback method: {entity.id}")
+            
+            # Disconnect the client
+            await client.disconnect()
+            
+            return {
+                "success": True,
+                "message": "Successfully joined chat",
+                "chat_id": str(getattr(entity, 'id', chat_id)),
+                "title": getattr(entity, 'title', 'Unknown')
+            }
+                
+        except UserBannedInChannelError:
+            await client.disconnect()
+            logger.error(f"User is banned from this channel: {original_chat_id}")
+            return {
+                "success": False,
+                "error": "This account is banned from the channel",
+                "error_type": "user_banned"
+            }
+            
+        except ChannelPrivateError:
+            await client.disconnect()
+            logger.error(f"Channel is private: {original_chat_id}")
+            return {
+                "success": False,
+                "error": "Cannot access this private channel",
+                "error_type": "channel_private"
+            }
+            
+        except UsernameInvalidError:
+            await client.disconnect()
+            logger.error(f"Invalid username: {original_chat_id}")
+            return {
+                "success": False,
+                "error": f"Invalid username or chat ID: {original_chat_id}",
+                "error_type": "invalid_username"
+            }
+            
+        except FloodWaitError as e:
+            # Telegram is asking us to wait
+            await client.disconnect()
+            logger.error(f"FloodWaitError: Need to wait {e.seconds} seconds")
+            
+            # Calculate the time when the account will be available again
+            cooldown_until = datetime.datetime.now() + datetime.timedelta(seconds=e.seconds)
+            
+            return {
+                "success": False,
+                "error": f"Rate limited: need to wait {e.seconds} seconds",
+                "cooldown_until": cooldown_until.isoformat(),
+                "error_type": "flood_wait"
+            }
+            
+        except SessionPasswordNeededError:
+            await client.disconnect()
+            logger.error("2FA is enabled on this account")
+            return {
+                "success": False,
+                "error": "Two-factor authentication is enabled on this account",
+                "error_type": "2fa_required"
+            }
+            
+        except Exception as e:
+            await client.disconnect()
+            logger.error(f"Error joining chat: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to join chat: {str(e)}"
+            }
+    
+    except Exception as e:
+        logger.error(f"Unexpected error in join_chat_async: {e}")
+        try:
+            if client and client.is_connected():
+                await client.disconnect()
+        except:
+            pass
+            
+        return {
+            "success": False,
+            "error": f"Unexpected error: {str(e)}"
         }
 
 class BroadcastManager:

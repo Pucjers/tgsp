@@ -1,17 +1,17 @@
 {
-  "25ee2d45-b659-4580-836f-c98c1234ee4a": {
-    "id": "25ee2d45-b659-4580-836f-c98c1234ee4a",
+  "ae545547-c477-458c-be07-ee18ab55ee2d": {
+    "id": "ae545547-c477-458c-be07-ee18ab55ee2d",
     "name": "Test1",
     "mode": "single",
     "workMode": "group",
-    "message": "Salam",
+    "message": "Ahkh",
     "chatCount": 1,
     "waitPeriod": {
       "min": 1,
       "max": 1
     },
     "hideSource": false,
-    "repeatBroadcast": false,
+    "repeatBroadcast": true,
     "joinChats": false,
     "processAfterPost": false,
     "deleteAfter": false,
@@ -21,15 +21,16 @@
       "4aa34c86-8caf-4952-8f69-c7540384f3d5",
       "7c4f31c5-f2eb-43d4-974a-aa2e6c7e33f2"
     ],
-    "status": "completed",
-    "createdAt": "2025-04-17T06:10:59.797503",
-    "startedAt": "2025-04-17T06:12:11.904454",
-    "completedAt": "2025-04-17T06:12:17.477195",
+    "status": "error",
+    "createdAt": "2025-04-17T18:34:21.532240",
+    "startedAt": "2025-04-17T18:34:21.533056",
+    "completedAt": null,
     "progress": {
       "total": 2,
-      "completed": 2,
+      "completed": 0,
       "errors": 0
     },
-    "chatListUrl": "/uploads/1744859444_groups.txt"
+    "error": "name 'format_message_with_template_tags' is not defined",
+    "chatListUrl": "/uploads/1744903954_groups.txt"
   }
 }
