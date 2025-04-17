@@ -115,13 +115,20 @@ def bootstrap_telegram_import_api():
     return True
 
 
-def init_broadcaster_tasks():
+def init_broadcaster_tasks(app=None):
     """
     Initialize the broadcaster task system.
     This should be called in app/__init__.py during application startup.
+    
+    Args:
+        app: The Flask application instance
     """
     import os
     import logging
+    import threading
+    import json
+    import time
+    from datetime import datetime
     
     # Create necessary directory for tasks
     data_dir = os.path.join(os.getcwd(), "data")
@@ -132,6 +139,75 @@ def init_broadcaster_tasks():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
     )
+    
+    # Import task system
+    try:
+        from app.services.broadcaster_tasks import start_task, task_registry, cleanup_tasks
+        
+        # Check if there are any running tasks that need to be restarted
+        tasks_file = os.path.join(data_dir, 'broadcast_tasks.json')
+        if os.path.exists(tasks_file):
+            try:
+                with open(tasks_file, 'r') as f:
+                    tasks = json.load(f)
+                    
+                # Look for tasks that were running
+                for task_id, task_data in tasks.items():
+                    if task_data.get('status') == 'running':
+                        # Update status to indicate restart
+                        task_data['status'] = 'restarting'
+                        logger = logging.getLogger(__name__)
+                        logger.info(f"Restarting task {task_id} that was running before server shutdown")
+                        
+                        # Start task in a background thread to avoid blocking startup
+                        def delayed_start(task_id, task_data):
+                            time.sleep(5)  # Wait for app to fully initialize
+                            try:
+                                # Pass the Flask app instance to provide context
+                                start_task(task_id, task_data, app, data_dir)
+                                logger.info(f"Successfully restarted task {task_id}")
+                            except Exception as e:
+                                logger.error(f"Failed to restart task {task_id}: {str(e)}")
+                                # Mark as error in the task file
+                                try:
+                                    with open(tasks_file, 'r') as f:
+                                        current_tasks = json.load(f)
+                                    if task_id in current_tasks:
+                                        current_tasks[task_id]['status'] = 'error'
+                                        current_tasks[task_id]['error'] = f"Failed to restart: {str(e)}"
+                                        with open(tasks_file, 'w') as f:
+                                            json.dump(current_tasks, f, indent=2)
+                                except Exception as err:
+                                    logger.error(f"Error updating task file: {str(err)}")
+                        
+                        # Start the delayed restart thread
+                        restart_thread = threading.Thread(
+                            target=delayed_start,
+                            args=(task_id, task_data)
+                        )
+                        restart_thread.daemon = True
+                        restart_thread.start()
+                
+                # Set up periodic cleanup of completed tasks
+                def periodic_cleanup():
+                    while True:
+                        time.sleep(300)  # Run every 5 minutes
+                        try:
+                            cleanup_tasks()
+                        except Exception as e:
+                            logging.error(f"Error during periodic task cleanup: {str(e)}")
+                
+                # Start the cleanup thread
+                cleanup_thread = threading.Thread(target=periodic_cleanup)
+                cleanup_thread.daemon = True
+                cleanup_thread.start()
+                
+            except Exception as e:
+                logging.error(f"Error loading tasks file during initialization: {str(e)}")
+    except ImportError as e:
+        logging.error(f"Error importing broadcaster_tasks module: {str(e)}")
+    except Exception as e:
+        logging.error(f"Error initializing broadcaster task system: {str(e)}")
     
     print("Broadcaster task system initialized")
     

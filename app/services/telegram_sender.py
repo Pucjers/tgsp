@@ -157,17 +157,33 @@ async def send_message_async(
         
         # Try to get the group entity
         try:
-            # Try to interpret group_id as a string (username)
+            # Process the group_id to ensure it's in the correct format
             if isinstance(group_id, str):
-                if group_id.isdigit():
-                    # If it's all digits, try to convert to int
+                # Handle different formats of group identifiers
+                
+                # If it's a t.me URL, extract just the username/channel part
+                if group_id.startswith('https://t.me/'):
+                    # Extract username from URL
+                    group_id = group_id[13:]  # Remove 'https://t.me/'
+                    logger.info(f"Extracted from https URL: {group_id}")
+                    
+                elif group_id.startswith('t.me/'):
+                    # Extract username from URL
+                    group_id = group_id[5:]  # Remove 't.me/'
+                    logger.info(f"Extracted from t.me URL: {group_id}")
+                    
+                # If it's an all-digit string, try to convert to int
+                elif group_id.isdigit():
                     group_id = int(group_id)
-                else:
-                    # Ensure username has @ prefix
-                    if not group_id.startswith('@'):
-                        group_id = f"@{group_id}"
+                    logger.info(f"Converted to integer ID: {group_id}")
+                    
+                # Handle @ prefix - Telethon doesn't need the @ symbol
+                elif group_id.startswith('@'):
+                    group_id = group_id[1:]  # Remove '@'
+                    logger.info(f"Removed @ prefix: {group_id}")
             
             logger.info(f"Attempting to get entity for: {group_id}")
+            
             # Get the entity with timeout
             try:
                 entity = await asyncio.wait_for(client.get_entity(group_id), timeout=10.0)
@@ -187,23 +203,27 @@ async def send_message_async(
                 "success": False,
                 "error": f"Could not find group: {str(e)}"
             }
+            
+        # If all went well, proceed with sending the message
         try:
-            if hasattr(entity, 'username') and entity.username:
-                logger.info(f"Attempting to join group: {entity.username}")
-                await client(JoinChannelRequest(entity))
-                logger.info(f"Successfully joined group: {entity.username}")
-            elif hasattr(entity, 'access_hash') and entity.access_hash:
-                logger.info(f"Attempting to join group with access hash")
-                await client(JoinChannelRequest(InputChannel(entity.id, entity.access_hash)))
-                logger.info(f"Successfully joined group with access hash")
-            else:
-                logger.warning("Unable to determine how to join this group/channel")
-        except Exception as join_error:
-            # If we can't join, log it but continue trying to send the message
-            # as the error might be because we're already a member
-            logger.warning(f"Error joining group: {join_error}")
-        # If we have images, send them with the message
-        try:
+            # Try to join the chat if it's a public channel
+            try:
+                if hasattr(entity, 'username') and entity.username:
+                    logger.info(f"Attempting to join group: {entity.username}")
+                    await client(JoinChannelRequest(entity))
+                    logger.info(f"Successfully joined group: {entity.username}")
+                elif hasattr(entity, 'access_hash') and entity.access_hash:
+                    logger.info(f"Attempting to join group with access hash")
+                    await client(JoinChannelRequest(InputChannel(entity.id, entity.access_hash)))
+                    logger.info(f"Successfully joined group with access hash")
+                else:
+                    logger.warning("Unable to determine how to join this group/channel")
+            except Exception as join_error:
+                # If we can't join, log it but continue trying to send the message
+                # as the error might be because we're already a member
+                logger.warning(f"Error joining group: {join_error}")
+                
+            # If we have images, send them with the message
             if image_paths and len(image_paths) > 0:
                 logger.info(f"Sending message with {len(image_paths)} images")
                 

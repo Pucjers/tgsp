@@ -14,6 +14,9 @@ from werkzeug.utils import secure_filename
 from app.api.broadcaster import broadcaster_bp
 from app.utils.file_utils import allowed_file, get_accounts
 
+# Import the broadcaster task runner
+from app.services.broadcaster_tasks import start_task, stop_task, get_task_status, cleanup_tasks
+
 
 @broadcaster_bp.route('/create-task', methods=['POST'])
 def create_broadcasting_task():
@@ -74,6 +77,14 @@ def create_broadcasting_task():
             }
         }
         
+        # If a chat list file was uploaded, store its URL
+        if 'chatListUrl' in data and data['chatListUrl']:
+            task['chatListUrl'] = data['chatListUrl']
+        
+        # For repost mode, store the source chat
+        if data.get('mode') == 'repost' and 'sourceChat' in data:
+            task['sourceChat'] = data['sourceChat']
+        
         # Save task to JSON file
         tasks_file = os.path.join(current_app.config.get('DATA_DIR', 'data'), 'broadcast_tasks.json')
         
@@ -97,15 +108,17 @@ def create_broadcasting_task():
         # Check if auto-run is requested
         auto_run = data.get('auto_run', False)
         if auto_run:
-            # Start task logic would go here
-            task['status'] = 'running'
-            task['startedAt'] = datetime.datetime.now().isoformat()
+            # Start the task in the background
+            data_dir = current_app.config.get('DATA_DIR', 'data')
             
-            # Save updated task status
-            with open(tasks_file, 'w') as f:
-                json.dump(tasks, f, indent=2)
+            # Start the task using the task runner - pass current_app for Flask context
+            success = start_task(task_id, task, current_app._get_current_object(), data_dir)
             
-            # In a real implementation, you would start a background task here
+            if success:
+                current_app.logger.info(f"Task {task_id} started successfully")
+            else:
+                current_app.logger.error(f"Failed to start task {task_id}")
+                return jsonify({"success": False, "error": "Failed to start task"}), 500
             
         return jsonify({
             "success": True,
@@ -141,9 +154,17 @@ def get_broadcasting_tasks():
             except json.JSONDecodeError:
                 tasks = {}
         
+        # Clean up completed tasks from registry
+        cleanup_tasks()
+        
         # Return specific task or all tasks
         if task_id:
             if task_id in tasks:
+                # Update status from registry if task is running
+                status = get_task_status(task_id)
+                if status:
+                    tasks[task_id]['status'] = status
+                
                 return jsonify({
                     "success": True,
                     "task": tasks[task_id]
@@ -185,8 +206,10 @@ def delete_broadcasting_task(task_id):
             return jsonify({"success": False, "error": "Task not found"}), 404
         
         # Check if task is running
-        if tasks[task_id].get('status') == 'running':
-            return jsonify({"success": False, "error": "Cannot delete a running task"}), 400
+        status = get_task_status(task_id)
+        if status == 'running':
+            # Stop the task first
+            stop_task(task_id)
         
         # Delete task
         del tasks[task_id]
@@ -230,18 +253,29 @@ def start_broadcasting_task(task_id):
             return jsonify({"success": False, "error": "Task not found"}), 404
         
         # Check if task is already running
-        if tasks[task_id].get('status') == 'running':
+        status = get_task_status(task_id)
+        if status == 'running':
             return jsonify({"success": False, "error": "Task is already running"}), 400
         
+        # Get task data
+        task_data = tasks[task_id]
+        data_dir = current_app.config.get('DATA_DIR', 'data')
+        
+        # Start task - pass current_app for Flask context
+        # Use _get_current_object() to get the actual app object instead of the proxy
+        success = start_task(task_id, task_data, current_app._get_current_object(), data_dir)
+        
+        if not success:
+            return jsonify({"success": False, "error": "Failed to start task"}), 500
+        
         # Update task status
-        tasks[task_id]['status'] = 'running'
-        tasks[task_id]['startedAt'] = datetime.datetime.now().isoformat()
+        task_data['status'] = 'running'
+        task_data['startedAt'] = datetime.datetime.now().isoformat()
+        tasks[task_id] = task_data
         
         # Save tasks
         with open(tasks_file, 'w') as f:
             json.dump(tasks, f, indent=2)
-        
-        # In a real implementation, you would start a background task here
         
         return jsonify({
             "success": True,
@@ -278,17 +312,23 @@ def stop_broadcasting_task(task_id):
             return jsonify({"success": False, "error": "Task not found"}), 404
         
         # Check if task is running
-        if tasks[task_id].get('status') != 'running':
+        status = get_task_status(task_id)
+        if status != 'running':
             return jsonify({"success": False, "error": "Task is not running"}), 400
+        
+        # Stop task
+        success = stop_task(task_id)
+        
+        if not success:
+            return jsonify({"success": False, "error": "Failed to stop task"}), 500
         
         # Update task status
         tasks[task_id]['status'] = 'stopped'
+        tasks[task_id]['completedAt'] = datetime.datetime.now().isoformat()
         
         # Save tasks
         with open(tasks_file, 'w') as f:
             json.dump(tasks, f, indent=2)
-        
-        # In a real implementation, you would stop the background task here
         
         return jsonify({
             "success": True,

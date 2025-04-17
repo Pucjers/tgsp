@@ -624,12 +624,35 @@ document.addEventListener("DOMContentLoaded", function() {
     if (elements.chatLinksFileInput) {
       elements.chatLinksFileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-          state.selectedFile = e.target.files[0];
-          if (elements.selectedFileName) {
-            elements.selectedFileName.textContent = state.selectedFile.name;
-          }
+            const file = e.target.files[0];
+            elements.selectedFileName.textContent = file.name;
+            
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Upload the file immediately when selected
+            fetch('/api/broadcaster/upload-chat-list', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Store the URL in the state
+                    state.chatListUrl = data.url;
+                    showToast('File uploaded successfully: ' + file.name, 'success');
+                    console.log('File uploaded, URL:', data.url);
+                } else {
+                    showToast('Error uploading file: ' + (data.error || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error uploading file:', error);
+                showToast('Error uploading file: Network error', 'error');
+            });
         }
-      });
+    });
     }
 
     // Account selector
@@ -1018,66 +1041,70 @@ document.addEventListener("DOMContentLoaded", function() {
   async function createTask(autoRun = false) {
     // Validate inputs
     if (!validateInputs()) {
-      return;
-    }
-    
-    // Check if all selected accounts have proxies
-    const accountsWithoutProxy = state.selectedAccounts.filter(account => !account.proxy_id);
-    if (accountsWithoutProxy.length > 0) {
-      if (elements.proxyWarningOverlay) {
-        elements.proxyWarningOverlay.style.display = 'flex';
         return;
-      }
     }
     
-    // Upload file if selected
-    let fileUrl = null;
-    if (state.selectedFile) {
-      const fileResult = await api.uploadChatListFile(state.selectedFile);
-      if (fileResult && fileResult.success) {
-        fileUrl = fileResult.url;
-      } else {
-        showToast('Не удалось загрузить файл со списком чатов', 'error');
-        return;
-      }
-    }
-    
-    // Create task data
+    // Create task data object with all parameters
     const taskData = {
-      name: elements.taskNameInput ? elements.taskNameInput.value : 'Новая задача',
-      mode: state.sendMode,
-      workMode: state.workMode,
-      message: elements.messageTextArea ? elements.messageTextArea.value : '',
-      chatListUrl: fileUrl,
-      chatCount: elements.chatCountInput ? parseInt(elements.chatCountInput.value) : 6,
-      waitPeriod: {
-        min: elements.waitMinInput ? parseInt(elements.waitMinInput.value) : 1,
-        max: elements.waitMaxInput ? parseInt(elements.waitMaxInput.value) : 1
-      },
-      hideSource: elements.hideSourceCheckbox ? elements.hideSourceCheckbox.checked : false,
-      repeatBroadcast: elements.repeatBroadcastCheckbox ? elements.repeatBroadcastCheckbox.checked : false,
-      joinChats: elements.joinChatsCheckbox ? elements.joinChatsCheckbox.checked : false,
-      processAfterPost: elements.processAfterPostCheckbox ? elements.processAfterPostCheckbox.checked : false,
-      deleteAfter: elements.deleteAfterCheckbox ? elements.deleteAfterCheckbox.checked : false,
-      leaveChats: elements.leaveChatsCheckbox ? elements.leaveChatsCheckbox.checked : false,
-      useFloodCheck: elements.useFloodCheckCheckbox ? elements.useFloodCheckCheckbox.checked : false,
-      selectedAccounts: state.selectedAccounts.map(acc => acc.id)
+        name: elements.taskNameInput ? elements.taskNameInput.value : 'New Task',
+        mode: state.sendMode,
+        workMode: state.workMode,
+        message: elements.messageTextArea ? elements.messageTextArea.value : '',
+        chatCount: elements.chatCountInput ? parseInt(elements.chatCountInput.value) : 6,
+        waitPeriod: {
+            min: elements.waitMinInput ? parseInt(elements.waitMinInput.value) : 1,
+            max: elements.waitMaxInput ? parseInt(elements.waitMaxInput.value) : 1
+        },
+        hideSource: elements.hideSourceCheckbox ? elements.hideSourceCheckbox.checked : false,
+        repeatBroadcast: elements.repeatBroadcastCheckbox ? elements.repeatBroadcastCheckbox.checked : false,
+        joinChats: elements.joinChatsCheckbox ? elements.joinChatsCheckbox.checked : false,
+        processAfterPost: elements.processAfterPostCheckbox ? elements.processAfterPostCheckbox.checked : false,
+        deleteAfter: elements.deleteAfterCheckbox ? elements.deleteAfterCheckbox.checked : false,
+        leaveChats: elements.leaveChatsCheckbox ? elements.leaveChatsCheckbox.checked : false,
+        useFloodCheck: elements.useFloodCheckCheckbox ? elements.useFloodCheckCheckbox.checked : false,
+        selectedAccounts: state.selectedAccounts.map(acc => acc.id),
+        auto_run: autoRun
     };
     
-    // Create task
-    const result = await api.createTask(taskData, autoRun);
-    
-    if (result && result.success) {
-      showToast(autoRun ? 'Задача создана и запущена' : 'Задача успешно создана', 'success');
-      hideModal('enhanced-broadcaster-modal');
-      
-      // Reload tasks
-      loadTasks();
-      
-      // Reset form
-      resetForm();
+    // Important: Include the chat list URL if available
+    if (state.chatListUrl) {
+        console.log('Including chat list URL in task:', state.chatListUrl);
+        taskData.chatListUrl = state.chatListUrl;
+    } else if (state.selectedFile) {
+        // If file was selected but not yet uploaded, show warning
+        showToast('Please wait for file upload to complete', 'warning');
+        return;
     }
-  }
+    
+    // Create task via API
+    try {
+        const response = await fetch('/api/broadcaster/create-task', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(taskData),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(autoRun ? 'Task created and started' : 'Task created successfully', 'success');
+            hideModal('enhanced-broadcaster-modal');
+            
+            // Reload tasks
+            loadTasks();
+            
+            // Reset form
+            resetForm();
+        } else {
+            showToast('Error creating task: ' + (result.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error creating task:', error);
+        showToast('Error creating task: Network error', 'error');
+    }
+}
   
   // Validate inputs
   function validateInputs() {

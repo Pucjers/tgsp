@@ -1,0 +1,35 @@
+{
+  "25ee2d45-b659-4580-836f-c98c1234ee4a": {
+    "id": "25ee2d45-b659-4580-836f-c98c1234ee4a",
+    "name": "Test1",
+    "mode": "single",
+    "workMode": "group",
+    "message": "Salam",
+    "chatCount": 1,
+    "waitPeriod": {
+      "min": 1,
+      "max": 1
+    },
+    "hideSource": false,
+    "repeatBroadcast": false,
+    "joinChats": false,
+    "processAfterPost": false,
+    "deleteAfter": false,
+    "leaveChats": false,
+    "useFloodCheck": false,
+    "accountIds": [
+      "4aa34c86-8caf-4952-8f69-c7540384f3d5",
+      "7c4f31c5-f2eb-43d4-974a-aa2e6c7e33f2"
+    ],
+    "status": "completed",
+    "createdAt": "2025-04-17T06:10:59.797503",
+    "startedAt": "2025-04-17T06:12:11.904454",
+    "completedAt": "2025-04-17T06:12:17.477195",
+    "progress": {
+      "total": 2,
+      "completed": 2,
+      "errors": 0
+    },
+    "chatListUrl": "/uploads/1744859444_groups.txt"
+  }
+}
